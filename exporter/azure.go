@@ -69,17 +69,17 @@ func (az *AzureAPI) GetPolicySetParameters(ctx context.Context, policySetName st
 	}
 	result := make([]PolicySetParameter, 0, len(policySet.Parameters))
 	for internalName, paramDef := range policySet.Parameters {
-		if v, ok := paramDef.DefaultValue.(string); ok {
-			result = append(result, PolicySetParameter{
-				InternalName:  internalName,
-				DisplayName:   *paramDef.Metadata.DisplayName,
-				Description:   *paramDef.Metadata.Description,
-				DefaultValue:  v,
-				AllowedValues: *paramDef.AllowedValues,
-			})
-		} else {
-			return nil, UnexpectedValueError(internalName, paramDef.DefaultValue)
+		var allowedValues []interface{}
+		if paramDef.AllowedValues != nil {
+			allowedValues = *paramDef.AllowedValues
 		}
+		result = append(result, PolicySetParameter{
+			InternalName:  internalName,
+			DisplayName:   *paramDef.Metadata.DisplayName,
+			Description:   *paramDef.Metadata.Description,
+			DefaultValue:  paramDef.DefaultValue,
+			AllowedValues: allowedValues,
+		})
 	}
 	return result, nil
 }
@@ -96,9 +96,14 @@ func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, mana
 			return nil, err
 		}
 		policyDef := list.Value()
+		var description string
+		if policyDef.Description != nil {
+			description = *policyDef.Description
+		}
 		result = append(result, Policy{
 			DisplayName: *policyDef.DisplayName,
 			ResourceID:  *policyDef.ID,
+			Description: description,
 		})
 	}
 	return result, nil

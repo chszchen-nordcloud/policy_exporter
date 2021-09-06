@@ -1,6 +1,8 @@
 package exporter
 
-import "context"
+import (
+	"context"
+)
 
 type PolicyDefinitionProvider struct {
 	PolicyReader             PolicyReader
@@ -44,7 +46,7 @@ type PolicySetParameter struct {
 	InternalName  string
 	DisplayName   string
 	Description   string
-	DefaultValue  string
+	DefaultValue  interface{}
 	Justification string
 	CostImpact    string
 	AllowedValues []interface{}
