@@ -12,6 +12,21 @@ const (
 	ENV_VAR_SUBSCRIPTION_ID = "AZURE_SUBSCRIPTION_ID"
 )
 
+func NewAzureAPIPolicyDefinitionProvider(config Config) (*PolicyDefinitionProvider, error) {
+	api, err := NewAzureAPI(config.SubscriptionID)
+	if err != nil {
+		return nil, err
+	}
+	return &PolicyDefinitionProvider{
+		PolicyReader: func(ctx context.Context) ([]Policy, error) {
+			return api.ListBuiltInPolicyByManagementGroup(ctx, config.ManagementGroupName)
+		},
+		PolicySetParameterReader: func(ctx context.Context) ([]PolicySetParameter, error) {
+			return api.GetPolicySetParameters(ctx, config.ASCPolicySetName)
+		},
+	}, nil
+}
+
 type AzureAPI struct {
 	authorizer     autorest.Authorizer
 	subscriptionID string
@@ -47,15 +62,21 @@ func NewAzureAPI(subscriptionID string) (*AzureAPI, error) {
 	return &azureAPI, nil
 }
 
-func (az *AzureAPI) GetPolicySetParameters(ctx context.Context, policySetName string) (PolicySetParameters, error) {
+func (az *AzureAPI) GetPolicySetParameters(ctx context.Context, policySetName string) ([]PolicySetParameter, error) {
 	policySet, err := az.policySetAPI.GetBuiltIn(ctx, policySetName)
 	if err != nil {
 		return nil, err
 	}
-	var result PolicySetParameters
+	result := make([]PolicySetParameter, 0, len(policySet.Parameters))
 	for internalName, paramDef := range policySet.Parameters {
 		if v, ok := paramDef.DefaultValue.(string); ok {
-			result[internalName] = PolicySetParameterValue{ Value: v}
+			result = append(result, PolicySetParameter{
+				InternalName:  internalName,
+				DisplayName:   *paramDef.Metadata.DisplayName,
+				Description:   *paramDef.Metadata.Description,
+				DefaultValue:  v,
+				AllowedValues: *paramDef.AllowedValues,
+			})
 		} else {
 			return nil, UnexpectedValueError(internalName, paramDef.DefaultValue)
 		}
@@ -75,9 +96,9 @@ func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, mana
 			return nil, err
 		}
 		policyDef := list.Value()
-		result = append(result, Policy {
+		result = append(result, Policy{
 			DisplayName: *policyDef.DisplayName,
-			ResourceID: *policyDef.ID,
+			ResourceID:  *policyDef.ID,
 		})
 	}
 	return result, nil
