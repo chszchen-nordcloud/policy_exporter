@@ -9,7 +9,7 @@ func SyncAndExport(ctx context.Context, config Config) error {
 	}
 
 	var policyByName map[string]Policy
-	var policySetParameterByName map[string]PolicySetParameter
+	var policySetParameterByName map[string]PolicyParameter
 	for _, provider := range providers {
 		policies, err := (provider.PolicyReader)(ctx)
 		if err != nil {
@@ -50,7 +50,7 @@ func mergePolicies(policies []Policy, dest *map[string]Policy) {
 	}
 }
 
-func mergePolicySetParameters(params []PolicySetParameter, dest *map[string]PolicySetParameter) {
+func mergePolicySetParameters(params []PolicyParameter, dest *map[string]PolicyParameter) {
 	for _, param := range params {
 		k := param.DisplayName
 		if existingParam, ok := (*dest)[k]; ok {
@@ -70,8 +70,8 @@ func collectPolicies(policyByName map[string]Policy) []Policy {
 	return result
 }
 
-func collectPolicySetParameters(paramByName map[string]PolicySetParameter) []PolicySetParameter {
-	result := make([]PolicySetParameter, 0, len(paramByName))
+func collectPolicySetParameters(paramByName map[string]PolicyParameter) []PolicyParameter {
+	result := make([]PolicyParameter, 0, len(paramByName))
 	for _, v := range paramByName {
 		result = append(result, v)
 	}

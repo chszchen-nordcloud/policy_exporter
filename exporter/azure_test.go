@@ -22,6 +22,7 @@ func TestAzureAPI_GetPolicySetParameters(t *testing.T) {
 	assert.NotEqual(t, "", param.InternalName)
 	assert.NotEqual(t, "", param.DisplayName)
 	assert.NotEqual(t, "", param.Description)
+	assert.NotEqual(t, "", param.Type)
 	assert.NotNil(t, "", param.DefaultValue)
 
 	err = PrettyPrint(params)
@@ -40,10 +41,17 @@ func TestAzureAPI_ListBuiltInPolicyByManagementGroup(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, len(policies) > 0)
 
-	policy := policies[0]
+	var policy Policy
+	for _, p := range policies {
+		if len(p.Parameters) != 0 {
+			policy = p
+			break
+		}
+	}
 	assert.NotEqual(t, "", policy.DisplayName)
 	assert.NotEqual(t, "", policy.ResourceID)
 	assert.NotEqual(t, "", policy.Description)
+	assert.NotEmpty(t, policy.Parameters)
 
 	err = PrettyPrint(policies)
 	assert.NoError(t, err)

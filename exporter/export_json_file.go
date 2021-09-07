@@ -6,6 +6,6 @@ func ExportPoliciesAsJson(ctx context.Context, policies []Policy, filepath strin
 	return nil
 }
 
-func ExportPolicySetParametersAsJson(ctx context.Context, policies []PolicySetParameter, filepath string) error {
+func ExportPolicySetParametersAsJson(ctx context.Context, policies []PolicyParameter, filepath string) error {
 	return nil
 }

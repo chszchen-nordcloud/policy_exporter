@@ -21,7 +21,7 @@ func NewAzureAPIPolicyDefinitionProvider(config Config) (*PolicyDefinitionProvid
 		PolicyReader: func(ctx context.Context) ([]Policy, error) {
 			return api.ListBuiltInPolicyByManagementGroup(ctx, config.ManagementGroupName)
 		},
-		PolicySetParameterReader: func(ctx context.Context) ([]PolicySetParameter, error) {
+		PolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
 			return api.GetPolicySetParameters(ctx, config.ASCPolicySetName)
 		},
 	}, nil
@@ -62,26 +62,37 @@ func NewAzureAPI(subscriptionID string) (*AzureAPI, error) {
 	return &azureAPI, nil
 }
 
-func (az *AzureAPI) GetPolicySetParameters(ctx context.Context, policySetName string) ([]PolicySetParameter, error) {
+func (az *AzureAPI) GetPolicySetParameters(ctx context.Context, policySetName string) ([]PolicyParameter, error) {
 	policySet, err := az.policySetAPI.GetBuiltIn(ctx, policySetName)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]PolicySetParameter, 0, len(policySet.Parameters))
-	for internalName, paramDef := range policySet.Parameters {
-		var allowedValues []interface{}
-		if paramDef.AllowedValues != nil {
-			allowedValues = *paramDef.AllowedValues
-		}
-		result = append(result, PolicySetParameter{
-			InternalName:  internalName,
-			DisplayName:   *paramDef.Metadata.DisplayName,
-			Description:   *paramDef.Metadata.Description,
-			DefaultValue:  paramDef.DefaultValue,
-			AllowedValues: allowedValues,
-		})
-	}
+	result := parsePolicyParameter(policySet.Parameters)
 	return result, nil
+}
+
+func parsePolicyParameter(paramDefs map[string]*policy.ParameterDefinitionsValue) []PolicyParameter {
+	result := make([]PolicyParameter, 0, len(paramDefs))
+	for internalName, paramDef := range paramDefs {
+		p := PolicyParameter{
+			InternalName: internalName,
+			Type:         string(paramDef.Type),
+			DefaultValue: paramDef.DefaultValue,
+		}
+		if paramDef.AllowedValues != nil {
+			p.AllowedValues = *paramDef.AllowedValues
+		}
+		if paramDef.Metadata != nil {
+			if paramDef.Metadata.Description != nil {
+				p.Description = *paramDef.Metadata.Description
+			}
+			if paramDef.Metadata.DisplayName != nil {
+				p.DisplayName = *paramDef.Metadata.DisplayName
+			}
+		}
+		result = append(result, p)
+	}
+	return result
 }
 
 func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, managementGroupID string) ([]Policy, error) {
@@ -96,15 +107,15 @@ func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, mana
 			return nil, err
 		}
 		policyDef := list.Value()
-		var description string
-		if policyDef.Description != nil {
-			description = *policyDef.Description
-		}
-		result = append(result, Policy{
+		p := Policy{
 			DisplayName: *policyDef.DisplayName,
 			ResourceID:  *policyDef.ID,
-			Description: description,
-		})
+			Parameters:  parsePolicyParameter(policyDef.Parameters),
+		}
+		if policyDef.Description != nil {
+			p.Description = *policyDef.Description
+		}
+		result = append(result, p)
 	}
 	return result, nil
 }

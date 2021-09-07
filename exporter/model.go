@@ -16,11 +16,11 @@ type PolicyDefinitionExporter struct {
 
 type PolicyReader = func(ctx context.Context) ([]Policy, error)
 
-type PolicySetParameterReader = func(ctx context.Context) ([]PolicySetParameter, error)
+type PolicySetParameterReader = func(ctx context.Context) ([]PolicyParameter, error)
 
 type PolicyExporter = func(ctx context.Context, policies []Policy, filepath string) error
 
-type PolicySetParameterExporter = func(ctx context.Context, policySetParameters []PolicySetParameter, filepath string) error
+type PolicySetParameterExporter = func(ctx context.Context, policySetParameters []PolicyParameter, filepath string) error
 
 type Category struct {
 	Name     string   `json:"name"`
@@ -32,6 +32,7 @@ type Policy struct {
 	ResourceID       string                `json:"-" yaml:"ResourceID"`
 	Justification    string                `json:"-" yaml:"Justification"`
 	Description      string                `json:"-" yaml:"-"`
+	Parameters       []PolicyParameter     `json:"-" yaml:"-"`
 	ManagementGroups map[string]Attachment `json:"managementGroups" yaml:"ManagementGroups"`
 }
 
@@ -42,8 +43,9 @@ type Attachment struct {
 	Effect     string            `json:"-" yaml:"Effect"`
 }
 
-type PolicySetParameter struct {
+type PolicyParameter struct {
 	InternalName  string
+	Type          string
 	DisplayName   string
 	Description   string
 	DefaultValue  interface{}
@@ -91,7 +93,7 @@ func (a *Attachment) Merge(other Attachment) {
 	}
 }
 
-func (p *PolicySetParameter) Merge(other PolicySetParameter) {
+func (p *PolicyParameter) Merge(other PolicyParameter) {
 	if p.InternalName == "" {
 		p.InternalName = other.InternalName
 	}
