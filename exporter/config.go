@@ -8,25 +8,37 @@ import (
 
 type Config struct {
 	// Required, will read from environment variable if not set
-	SubscriptionID string
+	SubscriptionID string `yaml:"SubscriptionID"`
 
-	ASCPolicySetName string
+	// Default to '1f3afdf9-d0c9-4c3d-847f-89da613e70a8', used to query ASC policy.
+	PolicyQueryASCPolicySetName string `yaml:"PolicyQueryASCPolicySetName"`
 
-	ManagementGroupName string
-	ExcelFilePath       string
-	YAMLFilePath        string
+	// Default to 'Sandbox', used to query builtin policies.
+	PolicyQueryManagementGroupName string `yaml:"PolicyQueryManagementGroupName"`
+
+	// Required for providing justification for policies
+	ExcelFilePath string `yaml:"ExcelFilePath"`
+
+	// Required, only builtin policies found in this file will be included in JSON parameter files
+	YAMLFilePath string `yaml:"YAMLFilePath"`
 
 	// Required, management groups that appear as columns in exported files
-	ManagementGroups []string
+	ManagementGroups []string `yaml:"ManagementGroups"`
 
 	// Default to current dir, directory for exported files
-	TargetDir string
+	TargetDir string `yaml:"TargetDir"`
 
 	// Required, needed to resolve the category for policies
-	LocalLandingZoneRepoDir string
+	LocalLandingZoneRepoDir string `yaml:"LocalLandingZoneRepoDir"`
 }
 
 func (c *Config) Validate() error {
+	if c.PolicyQueryManagementGroupName == "" {
+		c.PolicyQueryManagementGroupName = "Sandbox"
+	}
+	if c.PolicyQueryASCPolicySetName == "" {
+		c.PolicyQueryASCPolicySetName = "1f3afdf9-d0c9-4c3d-847f-89da613e70a8"
+	}
 	if c.SubscriptionID == "" {
 		if v, ok := os.LookupEnv(ENV_VAR_SUBSCRIPTION_ID); ok {
 			c.SubscriptionID = v

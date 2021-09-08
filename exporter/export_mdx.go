@@ -11,27 +11,24 @@ import (
 const (
 	TMPL_BUILTIN_POLICY_TABLE = `
 The content is update at {{.Timestamp}}
-ResourceId | DisplayName {{range .ManagementGroups}}| {{.}}{{end}}| Description | Justification |
------------ | ----------- {{range .ManagementGroups}}| ----------- {{end}}| ----------- | ----------- |
-{{range $policy := .Policies}}
-{{.ResourceID}}      | {{.DisplayName}} {{range $groupName := $.ManagementGroups}}| {{with index $policy.ManagementGroups $groupName}}{{.Effect}}{{end}} {{end}} | {{.Description}} | {{.Justification }}
-{{end}}
+
+ResourceId | DisplayName {{range .ManagementGroups}}| {{.}}{{end}}| Description | Justification 
+----------- | ----------- {{range .ManagementGroups}}| ----------- {{end}}| ----------- | ----------- 
+{{range $policy := .Policies}}{{.ResourceID}}      | {{.DisplayName}} {{range $groupName := $.ManagementGroups}}| {{with index $policy.ManagementGroups $groupName}}{{.Effect}}{{end}} {{end}} | {{.Description}} | {{.Justification }}{{end}}
 `
 	TMPL_CUSTOM_POLICY_TABLE = `
 The content is update at {{.Timestamp}}
+
 ResourceId | DisplayName {{range .ManagementGroups}}| {{.}}{{end}}| Description | Justification |
 ----------- | ----------- {{range .ManagementGroups}}| ----------- {{end}}| ----------- | ----------- |
-{{range $policy := .Policies}}
-{{.ResourceID}}      | {{.DisplayName}} {{range $groupName := $.ManagementGroups}}| {{with index $policy.ManagementGroups $groupName}}{{.Effect}}{{end}} {{end}} | {{.Description}} | {{.Justification }}
-{{end}}
+{{range $policy := .Policies}}{{.ResourceID}}      | {{.DisplayName}} {{range $groupName := $.ManagementGroups}}| {{with index $policy.ManagementGroups $groupName}}{{.Effect}}{{end}} {{end}} | {{.Description}} | {{.Justification }}{{end}}
 `
 	TMPL_ASC_POLICY_TABLE = `
 The content is update at {{.Timestamp}}
+
 Internal Name | Policy Definition | {{range .ManagementGroups}}| {{.}}{{end}}| Description | Justification | Cost Impact
 ----------- | ----------- {{range .ManagementGroups}}| ----------- {{end}}| ----------- | ----------- | ----------- 
-{{range $param := .Parameters }}
-{{.InternalName}}      | {{.DisplayName}} {{range $groupName := $.ManagementGroups}}| {{with index $param.ManagementGroups $groupName}}{{.}}{{end}} {{end}} | {{.Description}} | {{.Justification }} | {{.CostImpact}}
-{{end}}
+{{range $param := .Parameters }}{{.InternalName}}      | {{.DisplayName}} {{range $groupName := $.ManagementGroups}}| {{with index $param.ManagementGroups $groupName}}{{.}}{{end}} {{end}} | {{.Description}} | {{.Justification }} | {{.CostImpact}}{{end}}
 `
 )
 

@@ -131,9 +131,17 @@ func getPolicyDefinitionExporters(config Config) []PolicyDefinitionExporter {
 }
 
 func getPolicyDefinitionProviders(config Config) ([]*PolicyDefinitionProvider, error) {
-	azureAPIProvider, err := NewAzureAPIPolicyDefinitionProvider(config)
+	api, err := NewAzureAPI(config.SubscriptionID)
 	if err != nil {
 		return nil, err
+	}
+	azureAPIProvider := &PolicyDefinitionProvider{
+		BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
+			return api.ListBuiltInPolicyByManagementGroup(ctx, config.PolicyQueryManagementGroupName)
+		},
+		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
+			return api.GetPolicySetParameters(ctx, config.PolicyQueryASCPolicySetName)
+		},
 	}
 
 	excelPolicyDef, err := ReadPolicyDefinitionFromExcel(config.ExcelFilePath, SHEET_NAME_BUILTIN_POLICIES, SHEET_NAME_CUSTOM_POLICIES, SHEET_NAME_ASC_PARAMETERS)

@@ -11,21 +11,6 @@ const (
 	ENV_VAR_SUBSCRIPTION_ID = "AZURE_SUBSCRIPTION_ID"
 )
 
-func NewAzureAPIPolicyDefinitionProvider(config Config) (*PolicyDefinitionProvider, error) {
-	api, err := NewAzureAPI(config.SubscriptionID)
-	if err != nil {
-		return nil, err
-	}
-	return &PolicyDefinitionProvider{
-		BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
-			return api.ListBuiltInPolicyByManagementGroup(ctx, config.ManagementGroupName)
-		},
-		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
-			return api.GetPolicySetParameters(ctx, config.ASCPolicySetName)
-		},
-	}, nil
-}
-
 type AzureAPI struct {
 	authorizer     autorest.Authorizer
 	subscriptionID string

@@ -1,3 +1,9 @@
+SubscriptionID:
+PolicyQueryASCPolicySetName:
+PolicyQueryManagementGroupName:
+ExcelFilePath:
+YAMLFilePath:
+LocalLandingZoneRepoDir:
 ManagementGroups:
   - Management
   - Production
