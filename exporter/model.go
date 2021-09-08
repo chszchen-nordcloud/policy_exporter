@@ -5,12 +5,15 @@ import (
 )
 
 type PolicyDefinitionProvider struct {
-	PolicyReader             PolicyReader
-	PolicySetParameterReader PolicySetParameterReader
+	BuiltInPolicyReader         PolicyReader
+	CustomPolicyReader          PolicyReader
+	ASCPolicySetParameterReader PolicySetParameterReader
 }
 
 type PolicyDefinitionExporter struct {
 	PolicyExporter             PolicyExporter
+	BuiltInPolicyExporter      PolicyExporter
+	CustomPolicyExporter       PolicyExporter
 	PolicySetParameterExporter PolicySetParameterExporter
 }
 
@@ -18,9 +21,9 @@ type PolicyReader = func(ctx context.Context) ([]Policy, error)
 
 type PolicySetParameterReader = func(ctx context.Context) ([]PolicyParameter, error)
 
-type PolicyExporter = func(ctx context.Context, policies []Policy, filepath string) error
+type PolicyExporter = func(policies []Policy, targetDir string) error
 
-type PolicySetParameterExporter = func(ctx context.Context, policySetParameters []PolicyParameter, filepath string) error
+type PolicySetParameterExporter = func(policySetParameters []PolicyParameter, targetDir string) error
 
 type Category struct {
 	Name     string   `json:"name"`
@@ -34,6 +37,7 @@ type Policy struct {
 	Description      string                `json:"-" yaml:"-"`
 	Parameters       []PolicyParameter     `json:"-" yaml:"-"`
 	ManagementGroups map[string]Attachment `json:"managementGroups" yaml:"ManagementGroups"`
+	Optional         bool                  `json:"-" yaml:"-"`
 }
 
 type Attachment struct {
@@ -44,14 +48,19 @@ type Attachment struct {
 }
 
 type PolicyParameter struct {
-	InternalName  string
-	Type          string
-	DisplayName   string
-	Description   string
-	DefaultValue  interface{}
-	Justification string
-	CostImpact    string
-	AllowedValues []interface{}
+	InternalName     string
+	Type             string
+	DisplayName      string
+	Description      string
+	DefaultValue     interface{}
+	Justification    string
+	CostImpact       string
+	AllowedValues    []interface{}
+	ManagementGroups map[string]string
+}
+
+type PolicyParameterValue struct {
+	Value string `json:"value"`
 }
 
 func (p *Policy) Merge(other Policy) {
@@ -67,6 +76,7 @@ func (p *Policy) Merge(other Policy) {
 	if p.Description == "" {
 		p.Description = other.Justification
 	}
+	p.Optional = p.Optional && other.Optional
 	managementGroups := &p.ManagementGroups
 	for k, v := range other.ManagementGroups {
 		if existing, ok := (*managementGroups)[k]; ok {

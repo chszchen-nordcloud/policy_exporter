@@ -3,34 +3,64 @@ package exporter
 import "context"
 
 func SyncAndExport(ctx context.Context, config Config) error {
+	if err := config.Validate(); err != nil {
+		return err
+	}
+
 	providers, err := getPolicyDefinitionProviders(config)
 	if err != nil {
 		return err
 	}
 
-	var policyByName map[string]Policy
-	var policySetParameterByName map[string]PolicyParameter
+	var builtinPolicyByName map[string]Policy
+	var customPolicyByName map[string]Policy
+	var ascPolicySetParameterByName map[string]PolicyParameter
 	for _, provider := range providers {
-		policies, err := (provider.PolicyReader)(ctx)
+		builtinPolicies, err := (provider.BuiltInPolicyReader)(ctx)
 		if err != nil {
 			return err
 		}
-		mergePolicies(policies, &policyByName)
+		mergePolicies(builtinPolicies, &builtinPolicyByName)
 
-		params, err := (provider.PolicySetParameterReader)(ctx)
+		customPolicies, err := (provider.CustomPolicyReader)(ctx)
 		if err != nil {
 			return err
 		}
-		mergePolicySetParameters(params, &policySetParameterByName)
+		mergePolicies(customPolicies, &customPolicyByName)
+
+		params, err := (provider.ASCPolicySetParameterReader)(ctx)
+		if err != nil {
+			return err
+		}
+		mergePolicySetParameters(params, &ascPolicySetParameterByName)
 	}
 
-	policies := collectPolicies(policyByName)
-	policySetParams := collectPolicySetParameters(policySetParameterByName)
-	for _, exporter := range getPolicyDefinitionExporters() {
-		if err := (exporter.PolicyExporter)(ctx, policies, config.LandingZoneRepoLocalPath); err != nil {
-			return err
+	builtinPolicies := collectPolicies(builtinPolicyByName)
+	customPolicies := collectPolicies(customPolicyByName)
+	policySetParams := collectPolicySetParameters(ascPolicySetParameterByName)
+	var policies []Policy
+	policies = append(policies, builtinPolicies...)
+	policies = append(policies, customPolicies...)
+
+	for _, exporter := range getPolicyDefinitionExporters(config) {
+		if exporter.PolicyExporter != nil {
+			if err := (exporter.PolicyExporter)(policies, config.TargetDir); err != nil {
+				return err
+			}
+		} else {
+			if exporter.BuiltInPolicyExporter != nil {
+				if err := (exporter.BuiltInPolicyExporter)(policies, config.TargetDir); err != nil {
+					return err
+				}
+			}
+			if exporter.CustomPolicyExporter != nil {
+				if err := (exporter.CustomPolicyExporter)(policies, config.TargetDir); err != nil {
+					return err
+				}
+			}
 		}
-		if err := (exporter.PolicySetParameterExporter)(ctx, policySetParams, config.LandingZoneRepoLocalPath); err != nil {
+
+		if err := (exporter.PolicySetParameterExporter)(policySetParams, config.TargetDir); err != nil {
 			return err
 		}
 	}
@@ -78,12 +108,25 @@ func collectPolicySetParameters(paramByName map[string]PolicyParameter) []Policy
 	return result
 }
 
-func getPolicyDefinitionExporters() []PolicyDefinitionExporter {
-	return []PolicyDefinitionExporter{
-		PolicyDefinitionExporter{
-			PolicyExporter:             ExportPoliciesAsJson,
-			PolicySetParameterExporter: ExportPolicySetParametersAsJson,
+func getPolicyDefinitionExporters(config Config) []PolicyDefinitionExporter {
+	jsonExporter := PolicyDefinitionExporter{
+		PolicyExporter: func(policies []Policy, targetDir string) error {
+			return ExportPoliciesAsJSON(policies, config.LocalLandingZoneRepoDir, targetDir)
 		},
+		PolicySetParameterExporter: func(params []PolicyParameter, targetDir string) error {
+			return ExportPolicySetParametersAsJSON(params, "Prod", targetDir)
+		},
+	}
+	mdxExport := PolicyDefinitionExporter{
+		BuiltInPolicyExporter: func(policies []Policy, targetDir string) error {
+			return ExportBuiltInPolicyDoc(config.ManagementGroups, policies, targetDir)
+		},
+		PolicySetParameterExporter: func(params []PolicyParameter, targetDir string) error {
+			return ExportASCPolicyDoc(config.ManagementGroups, params, targetDir)
+		},
+	}
+	return []PolicyDefinitionExporter{
+		jsonExporter, mdxExport,
 	}
 }
 
@@ -93,7 +136,41 @@ func getPolicyDefinitionProviders(config Config) ([]*PolicyDefinitionProvider, e
 		return nil, err
 	}
 
-	// excel provider
+	excelPolicyDef, err := ReadPolicyDefinitionFromExcel(config.ExcelFilePath, SHEET_NAME_BUILTIN_POLICIES, SHEET_NAME_CUSTOM_POLICIES, SHEET_NAME_ASC_PARAMETERS)
+	if err != nil {
+		return nil, err
+	}
+	excelProvider := &PolicyDefinitionProvider{
+		BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
+			return excelPolicyDef.BuiltInPolicies, nil
+		},
+		CustomPolicyReader: func(ctx context.Context) ([]Policy, error) {
+			return excelPolicyDef.CustomPolicies, nil
+		},
+		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
+			return excelPolicyDef.ASCPolicySetParameters, nil
+		},
+	}
 
-	return []*PolicyDefinitionProvider{azureAPIProvider}, nil
+	yamlPolicyDef, err := ReadPolicyDefinitionFromYAML(config.YAMLFilePath)
+	if err != nil {
+		return nil, err
+	}
+	yamlProvider := &PolicyDefinitionProvider{
+		BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
+			return yamlPolicyDef.BuiltInPolicies, nil
+		},
+		CustomPolicyReader: func(ctx context.Context) ([]Policy, error) {
+			return yamlPolicyDef.CustomPolicies, nil
+		},
+		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
+			return yamlPolicyDef.ASCPolicySetParameters, nil
+		},
+	}
+
+	return []*PolicyDefinitionProvider{
+		azureAPIProvider,
+		excelProvider,
+		yamlProvider,
+	}, nil
 }

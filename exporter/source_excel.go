@@ -10,8 +10,16 @@ const (
 	SHEET_NAME_ASC_PARAMETERS   = "Security policies"
 )
 
-func ReadPoliciesFromExcel(filepath string, builtInPolicySheetName string, customPolicySheetName string) ([]Policy, error) {
-	f, err := excelize.OpenFile(filepath)
+type ExcelPolicyDefinition struct {
+	BuiltInPolicies        []Policy
+	CustomPolicies         []Policy
+	ASCPolicySetParameters []PolicyParameter
+}
+
+func ReadPolicyDefinitionFromExcel(
+	sourceFilePath string, builtInPolicySheetName string, customPolicySheetName string, ascPolicySheetName string,
+) (*ExcelPolicyDefinition, error) {
+	f, err := excelize.OpenFile(sourceFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -22,14 +30,22 @@ func ReadPoliciesFromExcel(filepath string, builtInPolicySheetName string, custo
 	if customPolicySheetName == "" {
 		customPolicySheetName = SHEET_NAME_CUSTOM_POLICIES
 	}
+	if ascPolicySheetName == "" {
+		ascPolicySheetName = SHEET_NAME_ASC_PARAMETERS
+	}
+
+	var result ExcelPolicyDefinition
 
 	rows := f.GetRows(builtInPolicySheetName)
-	policies := parseBuiltInPolicies(rows)
+	result.BuiltInPolicies = parseBuiltInPolicies(rows)
 
 	rows = f.GetRows(customPolicySheetName)
-	policies = append(policies, parseCustomPolicies(rows)...)
+	result.CustomPolicies = parseCustomPolicies(rows)
 
-	return policies, nil
+	rows = f.GetRows(ascPolicySheetName)
+	result.ASCPolicySetParameters = parsePolicyParameters(rows)
+
+	return &result, nil
 }
 
 func parseCustomPolicies(rows [][]string) []Policy {
@@ -51,21 +67,6 @@ func parseBuiltInPolicies(rows [][]string) []Policy {
 		})
 	}
 	return result
-}
-
-func ReadPolicySetParametersFromExcel(filepath string, ascPolicySheetName string) ([]PolicyParameter, error) {
-	f, err := excelize.OpenFile(filepath)
-	if err != nil {
-		return nil, err
-	}
-
-	if ascPolicySheetName == "" {
-		ascPolicySheetName = SHEET_NAME_ASC_PARAMETERS
-	}
-
-	rows := f.GetRows(ascPolicySheetName)
-	params := parsePolicyParameters(rows)
-	return params, nil
 }
 
 func parsePolicyParameters(rows [][]string) []PolicyParameter {

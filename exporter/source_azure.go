@@ -5,7 +5,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/policy"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
-	"os"
 )
 
 const (
@@ -18,10 +17,10 @@ func NewAzureAPIPolicyDefinitionProvider(config Config) (*PolicyDefinitionProvid
 		return nil, err
 	}
 	return &PolicyDefinitionProvider{
-		PolicyReader: func(ctx context.Context) ([]Policy, error) {
+		BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
 			return api.ListBuiltInPolicyByManagementGroup(ctx, config.ManagementGroupName)
 		},
-		PolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
+		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
 			return api.GetPolicySetParameters(ctx, config.ASCPolicySetName)
 		},
 	}, nil
@@ -36,13 +35,6 @@ type AzureAPI struct {
 
 func NewAzureAPI(subscriptionID string) (*AzureAPI, error) {
 	var azureAPI AzureAPI
-	if subscriptionID == "" {
-		if v, ok := os.LookupEnv(ENV_VAR_SUBSCRIPTION_ID); ok {
-			subscriptionID = v
-		} else {
-			return nil, MissingInputError("subscriptionID", "AzureAPI")
-		}
-	}
 	azureAPI.subscriptionID = subscriptionID
 
 	authorizer, err := auth.NewAuthorizerFromEnvironment()

@@ -1,0 +1,13 @@
+BuiltInPolicies:
+  - DisplayName: display name of policy a
+    ResourceId: /providers/Microsoft….
+    Justification: Use tags to organise….
+    ManagementGroups:
+      Management:
+        Effect: Append
+      Production:
+        Effect: Append
+      Non-Prod:
+        Effect: Append
+      Sandbox:
+        Effect: Append

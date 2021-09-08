@@ -20,3 +20,7 @@ func PrettyPrint(v interface{}) error {
 	fmt.Printf("%s\n", string(b))
 	return nil
 }
+
+func TestResourceDir() string {
+	return "../test_resources"
+}
