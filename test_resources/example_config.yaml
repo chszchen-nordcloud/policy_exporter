@@ -1,9 +1,9 @@
-SubscriptionID:
+SubscriptionID: 5959d188-3a85-4a68-98e0-af236b3c2cac
 PolicyQueryASCPolicySetName:
 PolicyQueryManagementGroupName:
-ExcelFilePath:
-YAMLFilePath:
-LocalLandingZoneRepoDir:
+ExcelFilePath: test_resources/Azure Cloud Foundation - Baseline Policies.xlsx
+YAMLFilePath: test_resources/example_policies.yaml
+LocalLandingZoneRepoDir: /Users/chszchen/Home/Temp/azure/ACF3.Modular
 ManagementGroups:
   - Management
   - Production

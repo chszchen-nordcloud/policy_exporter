@@ -33,6 +33,12 @@ type Config struct {
 }
 
 func (c *Config) Validate() error {
+	if _, err := os.Stat(c.ExcelFilePath); err != nil {
+		return err
+	}
+	if _, err := os.Stat(c.YAMLFilePath); err != nil {
+		return err
+	}
 	if c.PolicyQueryManagementGroupName == "" {
 		c.PolicyQueryManagementGroupName = "Sandbox"
 	}

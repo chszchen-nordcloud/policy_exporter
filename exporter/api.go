@@ -12,27 +12,33 @@ func SyncAndExport(ctx context.Context, config Config) error {
 		return err
 	}
 
-	var builtinPolicyByName map[string]Policy
-	var customPolicyByName map[string]Policy
-	var ascPolicySetParameterByName map[string]PolicyParameter
+	builtinPolicyByName := make(map[string]Policy)
+	customPolicyByName := make(map[string]Policy)
+	ascPolicySetParameterByName := make(map[string]PolicyParameter)
 	for _, provider := range providers {
-		builtinPolicies, err := (provider.BuiltInPolicyReader)(ctx)
-		if err != nil {
-			return err
+		if provider.BuiltInPolicyReader != nil {
+			builtinPolicies, err := (provider.BuiltInPolicyReader)(ctx)
+			if err != nil {
+				return err
+			}
+			mergePolicies(builtinPolicies, &builtinPolicyByName)
 		}
-		mergePolicies(builtinPolicies, &builtinPolicyByName)
 
-		customPolicies, err := (provider.CustomPolicyReader)(ctx)
-		if err != nil {
-			return err
+		if provider.CustomPolicyReader != nil {
+			customPolicies, err := (provider.CustomPolicyReader)(ctx)
+			if err != nil {
+				return err
+			}
+			mergePolicies(customPolicies, &customPolicyByName)
 		}
-		mergePolicies(customPolicies, &customPolicyByName)
 
-		params, err := (provider.ASCPolicySetParameterReader)(ctx)
-		if err != nil {
-			return err
+		if provider.ASCPolicySetParameterReader != nil {
+			params, err := (provider.ASCPolicySetParameterReader)(ctx)
+			if err != nil {
+				return err
+			}
+			mergePolicySetParameters(params, &ascPolicySetParameterByName)
 		}
-		mergePolicySetParameters(params, &ascPolicySetParameterByName)
 	}
 
 	builtinPolicies := collectPolicies(builtinPolicyByName)
