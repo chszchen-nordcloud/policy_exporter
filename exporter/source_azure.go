@@ -7,10 +7,6 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 )
 
-const (
-	ENV_VAR_SUBSCRIPTION_ID = "AZURE_SUBSCRIPTION_ID"
-)
-
 type AzureAPI struct {
 	authorizer     autorest.Authorizer
 	subscriptionID string
@@ -39,6 +35,7 @@ func NewAzureAPI(subscriptionID string) (*AzureAPI, error) {
 	return &azureAPI, nil
 }
 
+// GetPolicySetParameters returns all parameters of a policy set.
 func (az *AzureAPI) GetPolicySetParameters(ctx context.Context, policySetName string) ([]PolicyParameter, error) {
 	policySet, err := az.policySetAPI.GetBuiltIn(ctx, policySetName)
 	if err != nil {
@@ -72,6 +69,7 @@ func parsePolicyParameter(paramDefs map[string]*policy.ParameterDefinitionsValue
 	return result
 }
 
+// ListBuiltInPolicyByManagementGroup returns all builtin policies attached to a management group.
 func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, managementGroupID string) ([]Policy, error) {
 	page, err := az.policyAPI.ListByManagementGroup(ctx, managementGroupID)
 	if err != nil {

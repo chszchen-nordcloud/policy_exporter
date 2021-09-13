@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"fmt"
 	"github.com/360EntSecGroup-Skylar/excelize"
 )
 
@@ -16,12 +17,16 @@ type ExcelPolicyDefinition struct {
 	ASCPolicySetParameters []PolicyParameter
 }
 
+// ReadPolicyDefinitionFromExcel reads the following from excel file,
+// * 'Justification' of builtin policies.
+// * Custom policies.
+// * 'Justification' and 'CostImpact' of ASC policy parameters.
 func ReadPolicyDefinitionFromExcel(
 	sourceFilePath string, builtInPolicySheetName string, customPolicySheetName string, ascPolicySheetName string,
 ) (*ExcelPolicyDefinition, error) {
 	f, err := excelize.OpenFile(sourceFilePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open excel file due to: %w", err)
 	}
 
 	if builtInPolicySheetName == "" {

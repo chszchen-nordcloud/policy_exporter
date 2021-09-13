@@ -1,9 +1,15 @@
 BuiltInPolicies:
-  - DisplayName: display name of policy a
-    ResourceId: /providers/Microsoft….
-    Justification: Use tags to organise….
+  - DisplayName: Microsoft Managed Control 1599 - Developer Configuration Management | Software / Firmware Integrity Verification
+    ResourceID: /providers/Microsoft.Authorization/policyDefinitions/0004bbf0-5099-4179-869e-e9ffe5fb0945
+    Description: a policy
+    Justification: Microsoft implements this System and Services Acquisition control
     ManagementGroups:
       Management:
+        Parameters:
+          storageAccountName: "[variables('auditStorageAccountName')]"
+          subscriptionId: "[variables('auditSubscriptionId')]"
+          resourceGroupName: "[variables('auditStorageAccountRGName')]"
+        Location: "[variables('managedIdentityLocation')]"
         Effect: Append
       Production:
         Effect: Append

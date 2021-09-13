@@ -6,6 +6,10 @@ import (
 	"os"
 )
 
+const (
+	ENV_VAR_SUBSCRIPTION_ID = "AZURE_SUBSCRIPTION_ID"
+)
+
 type Config struct {
 	// Required, will read from environment variable if not set
 	SubscriptionID string `yaml:"SubscriptionID"`
@@ -32,6 +36,7 @@ type Config struct {
 	LocalLandingZoneRepoDir string `yaml:"LocalLandingZoneRepoDir"`
 }
 
+// Validate validates the config object and provides defaults for fields if necessary.
 func (c *Config) Validate() error {
 	if _, err := os.Stat(c.ExcelFilePath); err != nil {
 		return err

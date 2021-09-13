@@ -12,6 +12,7 @@ type YAMLPolicyDefinition struct {
 	ManagementGroups       []string          `yaml:"ManagementGroups"`
 }
 
+// ReadPolicyDefinitionFromYAML currently only expects builtin policies.
 func ReadPolicyDefinitionFromYAML(sourcePath string) (*YAMLPolicyDefinition, error) {
 	b, err := os.ReadFile(sourcePath)
 	if err != nil {
