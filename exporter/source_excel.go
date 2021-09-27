@@ -2,7 +2,7 @@ package exporter
 
 import (
 	"fmt"
-	"github.com/360EntSecGroup-Skylar/excelize"
+	"github.com/xuri/excelize/v2"
 )
 
 const (
@@ -41,13 +41,22 @@ func ReadPolicyDefinitionFromExcel(
 
 	var result ExcelPolicyDefinition
 
-	rows := f.GetRows(builtInPolicySheetName)
+	rows, err := f.GetRows(builtInPolicySheetName)
+	if err != nil {
+		return nil, err
+	}
 	result.BuiltInPolicies = parseBuiltInPolicies(rows)
 
-	rows = f.GetRows(customPolicySheetName)
+	rows, err = f.GetRows(customPolicySheetName)
+	if err != nil {
+		return nil, err
+	}
 	result.CustomPolicies = parseCustomPolicies(rows)
 
-	rows = f.GetRows(ascPolicySheetName)
+	rows, err = f.GetRows(ascPolicySheetName)
+	if err != nil {
+		return nil, err
+	}
 	result.ASCPolicySetParameters = parsePolicyParameters(rows)
 
 	return &result, nil

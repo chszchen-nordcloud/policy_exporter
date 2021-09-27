@@ -35,6 +35,7 @@ type Category struct {
 }
 
 type Policy struct {
+	Category         string                `json:"-" yaml:"Category"`
 	DisplayName      string                `json:"name" yaml:"DisplayName"`
 	ResourceID       string                `json:"-" yaml:"ResourceID"`
 	Justification    string                `json:"-" yaml:"Justification"`
@@ -44,8 +45,10 @@ type Policy struct {
 	Optional         bool                  `json:"-" yaml:"-"`
 }
 
+type Attachment map[string]interface{}
+
 // Attachment attaches a policy to a management group.
-type Attachment struct {
+type StrictAttachment struct {
 	Enabled    bool              `json:"enabled" yaml:"Enabled"`
 	Parameters map[string]string `json:"parameters" yaml:"Parameters"`
 	Location   string            `json:"location" yaml:"Location"`
@@ -98,7 +101,7 @@ func (p *Policy) Merge(other Policy) {
 	}
 }
 
-func (a *Attachment) Merge(other Attachment) {
+func (a *StrictAttachment) Merge(other StrictAttachment) {
 	if other.Enabled {
 		a.Enabled = other.Enabled
 	}
@@ -134,5 +137,11 @@ func (p *PolicyParameter) Merge(other PolicyParameter) {
 	}
 	if p.AllowedValues == nil {
 		p.AllowedValues = other.AllowedValues
+	}
+}
+
+func (a *Attachment) Merge(other Attachment) {
+	for k, v := range other {
+		(*a)[k] = v
 	}
 }
