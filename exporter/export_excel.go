@@ -312,7 +312,8 @@ func policyParameterToRowValues(parameter PolicyParameter, subscriptions []strin
 		"Security Center",
 		"BuiltIn",
 		parameter.InternalName,
-		"", "",
+		parameter.Justification,
+		parameter.CostImpact,
 	)...)
 	return values
 }
@@ -329,7 +330,8 @@ func builtInPolicyToRowValues(policy Policy, managementGroups []string) rowValue
 		policy.Category,
 		"BuiltIn",
 		policy.ResourceID,
-		"", "",
+		policy.Justification,
+		policy.CostImpact,
 	)...)
 	return values
 }

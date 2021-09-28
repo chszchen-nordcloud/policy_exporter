@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"context"
+	"fmt"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -66,12 +67,12 @@ func syncAndExport(ctx context.Context, config Config, exporters []PolicyDefinit
 			}
 		} else {
 			if exporter.BuiltInPolicyExporter != nil {
-				if err := (exporter.BuiltInPolicyExporter)(policies, config.TargetDir); err != nil {
+				if err := (exporter.BuiltInPolicyExporter)(builtinPolicies, config.TargetDir); err != nil {
 					return err
 				}
 			}
 			if exporter.CustomPolicyExporter != nil {
-				if err := (exporter.CustomPolicyExporter)(policies, config.TargetDir); err != nil {
+				if err := (exporter.CustomPolicyExporter)(customPolicies, config.TargetDir); err != nil {
 					return err
 				}
 			}
@@ -88,10 +89,14 @@ func syncAndExport(ctx context.Context, config Config, exporters []PolicyDefinit
 func mergePolicies(policies []Policy, dest *map[string]Policy) {
 	for _, policy := range policies {
 		k := policy.DisplayName
+		if k == "" {
+			fmt.Printf("ingore policy whose name is empty: %v\n", policy)
+			continue
+		}
 		if existingPolicy, ok := (*dest)[k]; ok {
 			existingPolicy.Merge(policy)
 			(*dest)[k] = existingPolicy
-		} else if !policy.Optional {
+		} else if policy.Required {
 			(*dest)[k] = policy
 		}
 	}
@@ -99,7 +104,11 @@ func mergePolicies(policies []Policy, dest *map[string]Policy) {
 
 func mergePolicySetParameters(params []PolicyParameter, dest *map[string]PolicyParameter) {
 	for _, param := range params {
-		k := param.DisplayName
+		k := param.InternalName
+		if k == "" {
+			fmt.Printf("ingore parameter whose name is empty: %v\n", param)
+			continue
+		}
 		if existingParam, ok := (*dest)[k]; ok {
 			existingParam.Merge(param)
 			(*dest)[k] = existingParam

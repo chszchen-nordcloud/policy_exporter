@@ -76,8 +76,14 @@ func parseCustomPolicies(rows [][]string) []Policy {
 func parseBuiltInPolicies(rows [][]string) []Policy {
 	result := make([]Policy, 0, len(rows))
 	for _, row := range rows[1:] {
+		var justification string
+		if len(row) >= 9 {
+			justification = row[8]
+		}
 		result = append(result, Policy{
-			Justification: row[7],
+			DisplayName:   row[1],
+			Category:      row[7],
+			Justification: justification,
 		})
 	}
 	return result
@@ -94,6 +100,7 @@ func parsePolicyParameters(rows [][]string) []PolicyParameter {
 			costImpact = row[8]
 		}
 		result = append(result, PolicyParameter{
+			InternalName:  row[0],
 			Justification: justification,
 			CostImpact:    costImpact,
 		})

@@ -52,7 +52,7 @@ func parsePolicyParameter(paramDefs map[string]*policy.ParameterDefinitionsValue
 			InternalName: internalName,
 			Type:         string(paramDef.Type),
 			DefaultValue: paramDef.DefaultValue,
-			Optional:     false,
+			Required:     true,
 		}
 		if paramDef.AllowedValues != nil {
 			p.AllowedValues = *paramDef.AllowedValues
@@ -87,7 +87,7 @@ func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, mana
 			DisplayName: *policyDef.DisplayName,
 			ResourceID:  *policyDef.ID,
 			Parameters:  parsePolicyParameter(policyDef.Parameters),
-			Optional:    false,
+			Required:    true,
 		}
 		if policyDef.Description != nil {
 			p.Description = *policyDef.Description

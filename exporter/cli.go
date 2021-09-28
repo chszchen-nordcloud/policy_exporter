@@ -49,7 +49,7 @@ func exportCommands(configFile *string) []cobra.Command {
 				if err != nil {
 					return err
 				}
-				return ExportIntermediateFiles(context.Background(), *config)
+				return ExportFinal(context.Background(), *config)
 			},
 		},
 	}

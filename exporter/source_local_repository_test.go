@@ -10,9 +10,10 @@ func TestReadCustomPoliciesFromLocalRepository(t *testing.T) {
 		return
 	}
 
-	policies, err := ReadCustomPoliciesFromLocalRepository("/tmp/ACF3.Modular")
+	policies, err := ReadCustomPoliciesFromLocalRepository("/Users/chszchen/Home/Temp/azure/ACF3.Modular")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, policies)
 
+	println(len(policies))
 	_ = PrettyPrint(policies)
 }
