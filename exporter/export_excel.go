@@ -118,8 +118,8 @@ var (
 		Name:  SHEET_NAME_ASC_PARAMETERS,
 		Order: 2,
 		Columns: []string{
-			"DisplayName", "Parameters: Possible values", "Default values", "Description", "Category", "Reference ID",
-			"Justification", "Cost Impact",
+			"DisplayName", "Parameters: Possible values", "Default values", "Description", "Category", "PolicyType",
+			"Reference ID", "Justification", "Cost Impact",
 		},
 		DynamicColumnIndex: "Default values",
 		GetRows: func(obj interface{}, subscriptions []string) []rowValues {
@@ -311,6 +311,7 @@ func policyParameterToRowValues(parameter PolicyParameter, subscriptions []strin
 		parameter.Description,
 		"Security Center",
 		"BuiltIn",
+		parameter.InternalName,
 		"", "",
 	)...)
 	return values

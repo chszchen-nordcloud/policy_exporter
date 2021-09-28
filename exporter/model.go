@@ -39,6 +39,7 @@ type Policy struct {
 	DisplayName      string                `json:"name" yaml:"DisplayName"`
 	ResourceID       string                `json:"-" yaml:"ResourceID"`
 	Justification    string                `json:"-" yaml:"Justification"`
+	CostImpact       string                `json:"-" yaml:"CostImpact"`
 	Description      string                `json:"-" yaml:"Description"`
 	Parameters       []PolicyParameter     `json:"-" yaml:"-"`
 	ManagementGroups map[string]Attachment `json:"managementGroups" yaml:"ManagementGroups"`
@@ -47,7 +48,7 @@ type Policy struct {
 
 type Attachment map[string]interface{}
 
-// Attachment attaches a policy to a management group.
+// StrictAttachment attaches a policy to a management group.
 type StrictAttachment struct {
 	Enabled    bool              `json:"enabled" yaml:"Enabled"`
 	Parameters map[string]string `json:"parameters" yaml:"Parameters"`
@@ -65,6 +66,7 @@ type PolicyParameter struct {
 	CostImpact       string
 	AllowedValues    []interface{}
 	ManagementGroups map[string]string
+	Optional         bool `json:"-" yaml:"-"`
 }
 
 // PolicyParameterValue is used in Azure LandingZone JSON parameter file.
@@ -85,6 +87,12 @@ func (p *Policy) Merge(other Policy) {
 	}
 	if p.Description == "" {
 		p.Description = other.Justification
+	}
+	if p.Justification == "" {
+		p.Justification = other.Justification
+	}
+	if p.CostImpact == "" {
+		p.CostImpact = other.CostImpact
 	}
 	p.Optional = p.Optional && other.Optional
 	if p.ManagementGroups == nil {

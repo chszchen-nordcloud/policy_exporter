@@ -20,8 +20,5 @@ func ReadPolicyDefinitionFromYAML(sourcePath string) (*YAMLPolicyDefinition, err
 	}
 	var result YAMLPolicyDefinition
 	err = yaml.Unmarshal(b, &result)
-	for i := range result.BuiltInPolicies {
-		result.BuiltInPolicies[i].Optional = false
-	}
 	return &result, err
 }

@@ -106,6 +106,7 @@ func ReadCustomPoliciesFromLocalRepository(repositoryDir string) ([]Policy, erro
 			return err
 		}
 
+		policy.Optional = false
 		policies = append(policies, policy)
 		return nil
 	})

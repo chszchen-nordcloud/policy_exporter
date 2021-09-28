@@ -1,8 +1,19 @@
 package exporter
 
-import "context"
+import (
+	"context"
+	"github.com/xuri/excelize/v2"
+)
 
-func SyncAndExport(ctx context.Context, config Config) error {
+func ExportIntermediateFiles(ctx context.Context, config Config) error {
+	return syncAndExport(ctx, config, getIntermediateExporters(config))
+}
+
+func ExportFinal(ctx context.Context, config Config) error {
+	return syncAndExport(ctx, config, getPolicyDefinitionExporters(config))
+}
+
+func syncAndExport(ctx context.Context, config Config, exporters []PolicyDefinitionExporter) error {
 	if err := config.Validate(); err != nil {
 		return err
 	}
@@ -48,7 +59,7 @@ func SyncAndExport(ctx context.Context, config Config) error {
 	policies = append(policies, builtinPolicies...)
 	policies = append(policies, customPolicies...)
 
-	for _, exporter := range getPolicyDefinitionExporters(config) {
+	for _, exporter := range exporters {
 		if exporter.PolicyExporter != nil {
 			if err := (exporter.PolicyExporter)(policies, config.TargetDir); err != nil {
 				return err
@@ -80,7 +91,7 @@ func mergePolicies(policies []Policy, dest *map[string]Policy) {
 		if existingPolicy, ok := (*dest)[k]; ok {
 			existingPolicy.Merge(policy)
 			(*dest)[k] = existingPolicy
-		} else {
+		} else if !policy.Optional {
 			(*dest)[k] = policy
 		}
 	}
@@ -136,6 +147,34 @@ func getPolicyDefinitionExporters(config Config) []PolicyDefinitionExporter {
 	}
 }
 
+func getIntermediateExporters(config Config) []PolicyDefinitionExporter {
+	f := excelize.NewFile()
+	excelExporter := PolicyDefinitionExporter{
+		BuiltInPolicyExporter: func(policies []Policy, targetDir string) error {
+			err := ExportDataToExcelSheet(f, SheetBuiltInPolicy, policies, config.ManagementGroups)
+			if err != nil {
+				return err
+			}
+			return SaveExcelFile(f, targetDir)
+		},
+		CustomPolicyExporter: func(policies []Policy, targetDir string) error {
+			err := ExportDataToExcelSheet(f, SheetCustomPolicy, policies, config.ManagementGroups)
+			if err != nil {
+				return err
+			}
+			return SaveExcelFile(f, targetDir)
+		},
+		PolicySetParameterExporter: func(parameters []PolicyParameter, targetDir string) error {
+			err := ExportDataToExcelSheet(f, SheetASCParameters, parameters, config.ManagementGroups)
+			if err != nil {
+				return err
+			}
+			return SaveExcelFile(f, targetDir)
+		},
+	}
+	return []PolicyDefinitionExporter{excelExporter}
+}
+
 func getPolicyDefinitionProviders(config Config) ([]*PolicyDefinitionProvider, error) {
 	api, err := NewAzureAPI(config.SubscriptionID)
 	if err != nil {
@@ -147,6 +186,16 @@ func getPolicyDefinitionProviders(config Config) ([]*PolicyDefinitionProvider, e
 		},
 		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
 			return api.GetPolicySetParameters(ctx, config.PolicyQueryASCPolicySetName)
+		},
+	}
+
+	localRepoDef, err := ReadCustomPoliciesFromLocalRepository(config.LocalLandingZoneRepoDir)
+	if err != nil {
+		return nil, err
+	}
+	localRepoProvider := &PolicyDefinitionProvider{
+		CustomPolicyReader: func(ctx context.Context) ([]Policy, error) {
+			return localRepoDef, nil
 		},
 	}
 
@@ -184,6 +233,7 @@ func getPolicyDefinitionProviders(config Config) ([]*PolicyDefinitionProvider, e
 
 	return []*PolicyDefinitionProvider{
 		azureAPIProvider,
+		localRepoProvider,
 		excelProvider,
 		yamlProvider,
 	}, nil
