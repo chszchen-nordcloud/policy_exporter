@@ -247,39 +247,45 @@ func getPolicyDefinitionProvidersForIntermediateExport(config Config) ([]*Policy
 		},
 	}
 
-	excelPolicyDef, err := ReadPolicyDefinitionFromObsoleteExcel(config.OldBaselineExcelFilePath, config.ManagementGroups)
-	if err != nil {
-		return nil, err
-	}
-	excelProvider := &PolicyDefinitionProvider{
-		BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
-			return excelPolicyDef.BuiltInPolicies, nil
-		},
-		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
-			return excelPolicyDef.ASCPolicySetParameters, nil
-		},
-	}
-
-	yamlPolicyDef, err := ReadPolicyDefinitionFromYAML(config.YAMLFilePath)
-	if err != nil {
-		return nil, err
-	}
-	yamlProvider := &PolicyDefinitionProvider{
-		BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
-			return yamlPolicyDef.BuiltInPolicies, nil
-		},
-		CustomPolicyReader: func(ctx context.Context) ([]Policy, error) {
-			return yamlPolicyDef.CustomPolicies, nil
-		},
-		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
-			return yamlPolicyDef.ASCPolicySetParameters, nil
-		},
-	}
-
-	return []*PolicyDefinitionProvider{
+	result := []*PolicyDefinitionProvider{
 		azureAPIProvider,
 		localRepoProvider,
-		excelProvider,
-		yamlProvider,
-	}, nil
+	}
+
+	if config.OldBaselineExcelFilePath != "" {
+		excelPolicyDef, err := ReadPolicyDefinitionFromObsoleteExcel(config.OldBaselineExcelFilePath, config.ManagementGroups)
+		if err != nil {
+			return nil, err
+		}
+		excelProvider := &PolicyDefinitionProvider{
+			BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
+				return excelPolicyDef.BuiltInPolicies, nil
+			},
+			ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
+				return excelPolicyDef.ASCPolicySetParameters, nil
+			},
+		}
+		result = append(result, excelProvider)
+	}
+
+	if config.YAMLFilePath != "" {
+		yamlPolicyDef, err := ReadPolicyDefinitionFromYAML(config.YAMLFilePath)
+		if err != nil {
+			return nil, err
+		}
+		yamlProvider := &PolicyDefinitionProvider{
+			BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
+				return yamlPolicyDef.BuiltInPolicies, nil
+			},
+			CustomPolicyReader: func(ctx context.Context) ([]Policy, error) {
+				return yamlPolicyDef.CustomPolicies, nil
+			},
+			ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
+				return yamlPolicyDef.ASCPolicySetParameters, nil
+			},
+		}
+		result = append(result, yamlProvider)
+	}
+
+	return result, nil
 }
