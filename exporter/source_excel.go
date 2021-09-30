@@ -277,6 +277,7 @@ func rowToPolicy(values []string, columns *columns) (*Policy, error) {
 		}
 		attachment := Attachment{
 			Parameters: converted,
+			Location:   "variables('managedIdentityLocation')]",
 		}
 		if effect, ok := converted["effect"]; ok {
 			attachment.Effect = effect.(string)

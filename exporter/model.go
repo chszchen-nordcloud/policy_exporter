@@ -40,15 +40,15 @@ type Category struct {
 }
 
 type Policy struct {
-	Category         string                `json:"-" yaml:"Category"`
-	DisplayName      string                `json:"name" yaml:"DisplayName"`
-	ResourceID       string                `json:"-" yaml:"ResourceID"`
-	Justification    string                `json:"-" yaml:"Justification"`
-	CostImpact       string                `json:"-" yaml:"CostImpact"`
-	Description      string                `json:"-" yaml:"Description"`
-	Parameters       []PolicyParameter     `json:"-" yaml:"-"`
-	ManagementGroups map[string]Attachment `json:"managementGroups" yaml:"ManagementGroups"`
-	Required         bool                  `json:"-" yaml:"-"`
+	Category               string                `json:"-" yaml:"Category"`
+	DisplayName            string                `json:"name" yaml:"DisplayName"`
+	ResourceID             string                `json:"-" yaml:"ResourceID"`
+	Justification          string                `json:"-" yaml:"Justification"`
+	CostImpact             string                `json:"-" yaml:"CostImpact"`
+	Description            string                `json:"-" yaml:"Description"`
+	Parameters             []PolicyParameter     `json:"-" yaml:"-"`
+	ManagementGroups       map[string]Attachment `json:"managementGroups" yaml:"ManagementGroups"`
+	AlwaysIncludedInExport bool                  `json:"-" yaml:"-"`
 }
 
 // Attachment attaches a policy to a management group.
@@ -56,20 +56,20 @@ type Attachment struct {
 	Enabled    bool                   `json:"enabled" yaml:"Enabled"`
 	Parameters map[string]interface{} `json:"parameters" yaml:"Parameters"`
 	Location   string                 `json:"location" yaml:"Location"`
-	Effect     string                 `json:"-" yaml:"Effect"`
+	Effect     string                 `json:"effect" yaml:"Effect"`
 }
 
 type PolicyParameter struct {
-	InternalName     string
-	Type             string
-	DisplayName      string
-	Description      string
-	DefaultValue     interface{}
-	Justification    string
-	CostImpact       string
-	AllowedValues    []interface{}
-	ManagementGroups map[string]interface{}
-	Required         bool `json:"-" yaml:"-"`
+	InternalName           string
+	Type                   string
+	DisplayName            string
+	Description            string
+	DefaultValue           interface{}
+	Justification          string
+	CostImpact             string
+	AllowedValues          []interface{}
+	ManagementGroups       map[string]interface{}
+	AlwaysIncludedInExport bool `json:"-" yaml:"-"`
 }
 
 // PolicyParameterValue is used in Azure LandingZone JSON parameter file.
@@ -100,7 +100,7 @@ func (p *Policy) Merge(other Policy) {
 	if p.CostImpact == "" {
 		p.CostImpact = other.CostImpact
 	}
-	p.Required = p.Required || other.Required
+	p.AlwaysIncludedInExport = p.AlwaysIncludedInExport || other.AlwaysIncludedInExport
 	if p.ManagementGroups == nil {
 		p.ManagementGroups = make(map[string]Attachment)
 	}
@@ -152,7 +152,15 @@ func (p *PolicyParameter) Merge(other PolicyParameter) {
 	if p.AllowedValues == nil {
 		p.AllowedValues = other.AllowedValues
 	}
-	p.Required = p.Required || other.Required
+	if p.ManagementGroups == nil {
+		p.ManagementGroups = make(map[string]interface{})
+	}
+	for k, v := range other.ManagementGroups {
+		if _, ok := p.ManagementGroups[k]; !ok {
+			p.ManagementGroups[k] = v
+		}
+	}
+	p.AlwaysIncludedInExport = p.AlwaysIncludedInExport || other.AlwaysIncludedInExport
 }
 
 func (p SortPoliciesByDisplayName) Len() int {

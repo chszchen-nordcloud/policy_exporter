@@ -20,7 +20,10 @@ type Config struct {
 	// Default to 'Sandbox', used to query builtin policies.
 	PolicyQueryManagementGroupName string `yaml:"PolicyQueryManagementGroupName"`
 
-	// Required for providing justification for policies
+	// Reuse justification provided for old baseline file
+	OldBaselineExcelFilePath string `yaml:"OldBaselineExcelFilePath"`
+
+	// The path to intermediate excel file
 	ExcelFilePath string `yaml:"ExcelFilePath"`
 
 	// Required, only builtin policies found in this file will be included in JSON parameter files
@@ -28,6 +31,9 @@ type Config struct {
 
 	// Required, management groups that appear as columns in exported files
 	ManagementGroups []string `yaml:"ManagementGroups"`
+
+	// Required, ASC parameters are exported under a single management group.
+	ManagementGroupToExportForASCParameters string `yaml:"ManagementGroupToExportForASCParameters"`
 
 	// Default to current dir, directory for exported files
 	TargetDir string `yaml:"TargetDir"`
@@ -38,7 +44,7 @@ type Config struct {
 
 // Validate validates the config object and provides defaults for fields if necessary.
 func (c *Config) Validate() error {
-	if _, err := os.Stat(c.ExcelFilePath); err != nil {
+	if _, err := os.Stat(c.OldBaselineExcelFilePath); err != nil {
 		return err
 	}
 	if _, err := os.Stat(c.YAMLFilePath); err != nil {

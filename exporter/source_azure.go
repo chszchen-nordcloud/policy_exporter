@@ -49,10 +49,10 @@ func parsePolicyParameter(paramDefs map[string]*policy.ParameterDefinitionsValue
 	result := make([]PolicyParameter, 0, len(paramDefs))
 	for internalName, paramDef := range paramDefs {
 		p := PolicyParameter{
-			InternalName: internalName,
-			Type:         string(paramDef.Type),
-			DefaultValue: paramDef.DefaultValue,
-			Required:     true,
+			InternalName:           internalName,
+			Type:                   string(paramDef.Type),
+			DefaultValue:           paramDef.DefaultValue,
+			AlwaysIncludedInExport: true,
 		}
 		if paramDef.AllowedValues != nil {
 			p.AllowedValues = *paramDef.AllowedValues
@@ -84,15 +84,34 @@ func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, mana
 		}
 		policyDef := list.Value()
 		p := Policy{
-			DisplayName: *policyDef.DisplayName,
-			ResourceID:  *policyDef.ID,
-			Parameters:  parsePolicyParameter(policyDef.Parameters),
-			Required:    true,
+			DisplayName:            *policyDef.DisplayName,
+			ResourceID:             *policyDef.ID,
+			Parameters:             parsePolicyParameter(policyDef.Parameters),
+			AlwaysIncludedInExport: true,
 		}
 		if policyDef.Description != nil {
 			p.Description = *policyDef.Description
 		}
+		if category, ok := getBuiltinPolicyCategory(policyDef.Metadata); ok {
+			p.Category = category
+		}
 		result = append(result, p)
 	}
 	return result, nil
+}
+
+func getBuiltinPolicyCategory(metadata interface{}) (string, bool) {
+	m, ok := metadata.(map[string]interface{})
+	if !ok {
+		return "", false
+	}
+	category, ok := m["category"]
+	if !ok {
+		return "", false
+	}
+	categoryStr, ok := category.(string)
+	if !ok {
+		return "", false
+	}
+	return categoryStr, true
 }

@@ -106,7 +106,7 @@ func ReadCustomPoliciesFromLocalRepository(repositoryDir string) ([]Policy, erro
 			return err
 		}
 
-		policy.Required = true
+		policy.AlwaysIncludedInExport = true
 		policies = append(policies, policy)
 		return nil
 	})

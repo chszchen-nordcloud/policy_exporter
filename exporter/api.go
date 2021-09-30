@@ -8,23 +8,28 @@ import (
 )
 
 func ExportIntermediateFiles(ctx context.Context, config Config) error {
-	return syncAndExport(ctx, config, getIntermediateExporters(config))
-}
-
-func ExportFinal(ctx context.Context, config Config) error {
-	return syncAndExport(ctx, config, getPolicyDefinitionExporters(config))
-}
-
-func syncAndExport(ctx context.Context, config Config, exporters []PolicyDefinitionExporter) error {
 	if err := config.Validate(); err != nil {
 		return err
 	}
-
-	providers, err := getPolicyDefinitionProviders(config)
+	providers, err := getPolicyDefinitionProvidersForIntermediateExport(config)
 	if err != nil {
 		return err
 	}
+	return syncAndExport(ctx, config, providers, getIntermediateExporters(config))
+}
 
+func ExportFinal(ctx context.Context, config Config) error {
+	if err := config.Validate(); err != nil {
+		return err
+	}
+	providers, err := getPolicyDefinitionProvidersForFinalExport(config)
+	if err != nil {
+		return err
+	}
+	return syncAndExport(ctx, config, providers, getPolicyDefinitionExporters(config))
+}
+
+func syncAndExport(ctx context.Context, config Config, providers []*PolicyDefinitionProvider, exporters []PolicyDefinitionExporter) error {
 	builtinPolicyByName := make(map[string]Policy)
 	customPolicyByName := make(map[string]Policy)
 	ascPolicySetParameterByName := make(map[string]PolicyParameter)
@@ -102,7 +107,7 @@ func mergePolicies(policies []Policy, dest *map[string]Policy) {
 		if existingPolicy, ok := (*dest)[k]; ok {
 			existingPolicy.Merge(policy)
 			(*dest)[k] = existingPolicy
-		} else if policy.Required {
+		} else if policy.AlwaysIncludedInExport {
 			(*dest)[k] = policy
 		}
 	}
@@ -118,7 +123,7 @@ func mergePolicySetParameters(params []PolicyParameter, dest *map[string]PolicyP
 		if existingParam, ok := (*dest)[k]; ok {
 			existingParam.Merge(param)
 			(*dest)[k] = existingParam
-		} else if param.Required {
+		} else if param.AlwaysIncludedInExport {
 			(*dest)[k] = param
 		}
 	}
@@ -146,7 +151,7 @@ func getPolicyDefinitionExporters(config Config) []PolicyDefinitionExporter {
 			return ExportPoliciesAsJSON(policies, config.LocalLandingZoneRepoDir, targetDir)
 		},
 		PolicySetParameterExporter: func(params []PolicyParameter, targetDir string) error {
-			return ExportPolicySetParametersAsJSON(params, "Prod", targetDir)
+			return ExportPolicySetParametersAsJSON(params, config.ManagementGroupToExportForASCParameters, targetDir)
 		},
 	}
 	mdxExport := PolicyDefinitionExporter{
@@ -190,7 +195,35 @@ func getIntermediateExporters(config Config) []PolicyDefinitionExporter {
 	return []PolicyDefinitionExporter{excelExporter}
 }
 
-func getPolicyDefinitionProviders(config Config) ([]*PolicyDefinitionProvider, error) {
+func getPolicyDefinitionProvidersForFinalExport(config Config) ([]*PolicyDefinitionProvider, error) {
+	intermediateExporters, err := getPolicyDefinitionProvidersForIntermediateExport(config)
+	if err != nil {
+		return nil, err
+	}
+
+	excelPolicyDef, err := ReadPolicyDefinitionFromExcel(config.ExcelFilePath, config.ManagementGroups)
+	if err != nil {
+		return nil, err
+	}
+	excelProvider := &PolicyDefinitionProvider{
+		BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
+			return excelPolicyDef.BuiltInPolicies, nil
+		},
+		CustomPolicyReader: func(ctx context.Context) ([]Policy, error) {
+			return excelPolicyDef.CustomPolicies, nil
+		},
+		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
+			return excelPolicyDef.ASCPolicySetParameters, nil
+		},
+	}
+
+	result := make([]*PolicyDefinitionProvider, 0, len(intermediateExporters)+1)
+	result = append(result, intermediateExporters...)
+	result = append(result, excelProvider)
+	return result, nil
+}
+
+func getPolicyDefinitionProvidersForIntermediateExport(config Config) ([]*PolicyDefinitionProvider, error) {
 	api, err := NewAzureAPI(config.SubscriptionID)
 	if err != nil {
 		return nil, err
@@ -214,7 +247,7 @@ func getPolicyDefinitionProviders(config Config) ([]*PolicyDefinitionProvider, e
 		},
 	}
 
-	excelPolicyDef, err := ReadPolicyDefinitionFromObsoleteExcel(config.ExcelFilePath, config.ManagementGroups)
+	excelPolicyDef, err := ReadPolicyDefinitionFromObsoleteExcel(config.OldBaselineExcelFilePath, config.ManagementGroups)
 	if err != nil {
 		return nil, err
 	}
