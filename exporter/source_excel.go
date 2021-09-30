@@ -13,9 +13,16 @@ const (
 	SheetNameCustomPolicies  = "Nordcloud custom policies"
 	SheetNameAscParameters   = "Security policies"
 
+	// CellValueNotApplied is a magic value used for values of management group columns. Note that this value
+	// is used for the entire cell instead of values for separate parameters. It means the policy is not used
+	// for that management group.
 	CellValueNotApplied = "n/a"
 )
 
+// Reader definitions for obsolete files are used for old baseline file which is exported from Google Doc.
+// The obsolete file format is supposed to be static as the file is no longer in active maintenance.
+// The other readers are used to read the newly created intermediate excel file which is used to collect data provided
+// manually.
 var (
 	builtinPoliciesSheetReader = policySheetReader{
 		SheetName:       SheetNameBuiltinPolicies,
@@ -32,6 +39,8 @@ var (
 		SheetDefinition:      &SheetASCParameters,
 		RowToPolicyParameter: rowToPolicyParameter,
 	}
+
+	// Didn't bother to replace magic numbers as the file to parse is obsolete.
 	obsoleteBuiltinPoliciesSheetReader = policySheetReader{
 		SheetName: SheetNameBuiltinPolicies,
 		RowToPolicy: func(row []string, _ *columns) (*Policy, error) {
@@ -47,6 +56,8 @@ var (
 			return &policy, nil
 		},
 	}
+
+	// Didn't bother to replace magic numbers as the file to parse is obsolete.
 	obsoleteASCPolicyParametersSheetReader = policyParameterSheetReader{
 		SheetName: SheetNameAscParameters,
 		RowToPolicyParameter: func(row []string, _ *columns) (*PolicyParameter, error) {
@@ -73,6 +84,9 @@ func ReadPolicyDefinitionFromObsoleteExcel(sourceFilePath string, managementGrou
 	})
 }
 
+// ReadPolicyDefinitionFromExcel is mainly used to read data that has to be provided manually. Because there is no need
+// to parse the information that is automatically generated. Currently, management group columns and justification,
+// cost impact are read from the file.
 func ReadPolicyDefinitionFromExcel(sourceFilePath string, managementGroups []string) (*excelPolicyDefinition, error) {
 	return readPolicyDefinitionFromExcel(sourceFilePath, managementGroups, ExcelPolicyDefinitionReader{
 		BuiltInPoliciesReader:     &builtinPoliciesSheetReader,
@@ -81,10 +95,6 @@ func ReadPolicyDefinitionFromExcel(sourceFilePath string, managementGroups []str
 	})
 }
 
-// ReadPolicyDefinitionFromExcel reads the following from excel file,
-// * 'Justification' of builtin policies.
-// * Custom policies.
-// * 'Justification' and 'CostImpact' of ASC policy parameters.
 func readPolicyDefinitionFromExcel(
 	sourceFilePath string, managementGroups []string, excelReader ExcelPolicyDefinitionReader,
 ) (*excelPolicyDefinition, error) {
@@ -154,7 +164,7 @@ func readPoliciesFromSheet(f *excelize.File, managementGroups []string, reader *
 
 	var columns *columns
 	if reader.SheetDefinition != nil {
-		_, cols, err := reader.SheetDefinition.GetHeaders(managementGroups)
+		_, cols, err := reader.SheetDefinition.BuildHeaders(managementGroups)
 		if err != nil {
 			return nil, err
 		}
@@ -180,7 +190,7 @@ func readPolicyParametersFromSheet(f *excelize.File, managementGroups []string, 
 
 	var columns *columns
 	if reader.SheetDefinition != nil {
-		_, cols, err := reader.SheetDefinition.GetHeaders(managementGroups)
+		_, cols, err := reader.SheetDefinition.BuildHeaders(managementGroups)
 		if err != nil {
 			return nil, err
 		}
@@ -304,6 +314,7 @@ func parsePolicyParameterValues(parameterTypes map[string]string, value string) 
 	return result, nil
 }
 
+// all possible types are listed according to [this](https://docs.microsoft.com/en-us/azure/governance/policy/concepts/definition-structure#parameters)
 func parseSingleParameterValue(parameterType string, s string) (interface{}, error) {
 	value := parseSingleParameterRawValue(s)
 	var converted interface{}
@@ -337,6 +348,7 @@ func parseSingleParameterValue(parameterType string, s string) (interface{}, err
 	return converted, nil
 }
 
+// if we know there can only be one value.
 func parseSingleParameterRawValue(s string) string {
 	for _, v := range parsePolicyParameterRawValues(s) {
 		return v
@@ -344,6 +356,7 @@ func parseSingleParameterRawValue(s string) string {
 	return ""
 }
 
+// turn cell value into key value pairs
 func parsePolicyParameterRawValues(s string) map[string]string {
 	lines := strings.Split(s, "\n")
 	m := make(map[string]string, len(lines))
