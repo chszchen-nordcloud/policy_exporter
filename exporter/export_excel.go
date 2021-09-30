@@ -11,6 +11,88 @@ import (
 	"time"
 )
 
+const (
+	ColumnDisplayName    = "DisplayName"
+	ColumnPossibleValues = "Parameters: Possible values"
+	ColumnDefaultValues  = "Default values"
+	ColumnDescription    = "Description"
+	ColumnCategory       = "Category"
+	ColumnPolicyType     = "Policy Type"
+	ColumnResourceID     = "ResourceID"
+	ColumnJustification  = "Justification"
+	ColumnCostImpact     = "Cost Impact"
+	ColumnReferenceID    = "Reference ID"
+	ColumnParameterTypes = "Parameter Types"
+)
+
+var (
+	SheetBuiltInPolicy = sheetDefinition{
+		Name:  SheetNameBuiltinPolicies,
+		Order: 0,
+		Columns: []string{
+			ColumnDisplayName, ColumnPossibleValues, ColumnDefaultValues, ColumnDescription, ColumnCategory,
+			ColumnPolicyType, ColumnResourceID, ColumnJustification, ColumnCostImpact,
+			ColumnParameterTypes,
+		},
+		DynamicColumnIndex: ColumnDefaultValues,
+		GetRows: func(obj interface{}) []partialRow {
+			policies := obj.([]Policy)
+
+			rows := make([]partialRow, 0, len(policies))
+			for _, policy := range policies {
+				row := builtInPolicyToRowValues(policy)
+				rows = append(rows, row)
+			}
+			return rows
+		},
+	}
+
+	SheetCustomPolicy = sheetDefinition{
+		Name:  SheetNameCustomPolicies,
+		Order: 1,
+		Columns: []string{
+			ColumnDisplayName, ColumnPossibleValues, ColumnDefaultValues, ColumnDescription, ColumnCategory,
+			ColumnPolicyType, ColumnJustification, ColumnCostImpact,
+			ColumnParameterTypes,
+		},
+		DynamicColumnIndex: ColumnDefaultValues,
+		GetRows: func(obj interface{}) []partialRow {
+			policies := obj.([]Policy)
+
+			rows := make([]partialRow, 0, len(policies))
+			for _, policy := range policies {
+				row := builtInPolicyToRowValues(policy)
+				row[ColumnPolicyType] = newCell("Custom")
+				delete(row, ColumnResourceID)
+				rows = append(rows, row)
+			}
+			return rows
+		},
+	}
+
+	SheetASCParameters = sheetDefinition{
+		Name:  SheetNameAscParameters,
+		Order: 2,
+		Columns: []string{
+			ColumnDisplayName, ColumnPossibleValues, ColumnDefaultValues, ColumnDescription, ColumnCategory,
+			ColumnPolicyType, ColumnReferenceID, ColumnJustification, ColumnCostImpact,
+			ColumnParameterTypes,
+		},
+		DynamicColumnIndex: ColumnDefaultValues,
+		GetRows: func(obj interface{}) []partialRow {
+			parameters := obj.([]PolicyParameter)
+
+			rows := make([]partialRow, 0, len(parameters))
+			for _, parameter := range parameters {
+				row := policyParameterToRowValues(parameter)
+				rows = append(rows, row)
+			}
+			return rows
+		},
+	}
+)
+
+// SaveExcelFile saves the workbook under the target directory, properly named to avoid overwriting history files.
 func SaveExcelFile(file *excelize.File, targetDir string) error {
 	targetFile := getTargetFileName(targetDir)
 	if _, err := os.Stat(targetFile); err != nil {
@@ -25,17 +107,20 @@ func SaveExcelFile(file *excelize.File, targetDir string) error {
 	return file.SaveAs(targetFile)
 }
 
+// ExportDataToExcelSheet exports input data to a sheet in the workbook, given the sheet definition and dynamic columns.
 func ExportDataToExcelSheet(file *excelize.File, sheetDef sheetDefinition, data interface{}, dynamicColumns []string) error {
 	sheet := newExcelSheet(file, sheetDef.Name, sheetDef.Order)
 
-	headers, err := sheetDef.GetHeaders(dynamicColumns)
+	headers, columns, err := sheetDef.GetHeaders(dynamicColumns)
 	if err != nil {
 		return err
 	}
-	rows := []rowValues{headers}
-	rows = append(rows, sheetDef.GetRows(data, dynamicColumns)...)
+	rows := []row{headers}
+	for _, row := range sheetDef.GetRows(data) {
+		rows = append(rows, columns.ToRowValues(row))
+	}
 
-	err = sheet.AddRows(sheetDef.Name, rows)
+	err = sheet.SetRows(sheetDef.Name, rows)
 	if err != nil {
 		return err
 	}
@@ -71,82 +156,22 @@ func ExportDataToExcelSheet(file *excelize.File, sheetDef sheetDefinition, data 
 	return nil
 }
 
-var (
-	SheetBuiltInPolicy = sheetDefinition{
-		Name:  SHEET_NAME_BUILTIN_POLICIES,
-		Order: 0,
-		Columns: []string{
-			"DisplayName", "Parameters: Possible values", "Default values", "Description", "Category", "Policy Type", "ResourceId",
-			"Justification", "Cost Impact",
-		},
-		DynamicColumnIndex: "Default values",
-		GetRows: func(obj interface{}, managementGroups []string) []rowValues {
-			policies := obj.([]Policy)
+// toPartialRows converts an input object to values for one row. It's part of the sheet definition.
+type toPartialRows = func(obj interface{}) []partialRow
 
-			rows := make([]rowValues, 0, len(policies))
-			for _, policy := range policies {
-				row := builtInPolicyToRowValues(policy, managementGroups)
-				rows = append(rows, row)
-			}
-			return rows
-		},
-	}
-
-	SheetCustomPolicy = sheetDefinition{
-		Name:  SHEET_NAME_CUSTOM_POLICIES,
-		Order: 1,
-		Columns: []string{
-			"DisplayName", "Parameters: Possible values", "Default values", "Description", "Category", "PolicyType",
-			"Justification", "Cost Impact",
-		},
-		DynamicColumnIndex: "Default values",
-		GetRows: func(obj interface{}, managementGroups []string) []rowValues {
-			policies := obj.([]Policy)
-
-			rows := make([]rowValues, 0, len(policies))
-			for _, policy := range policies {
-				row := builtInPolicyToRowValues(policy, managementGroups)
-				row[(len(row) - 4)] = newCellValue("Custom")
-				row[len(row)-3] = newCellValue("")
-				rows = append(rows, row[0:len(row)-1])
-			}
-			return rows
-		},
-	}
-
-	SheetASCParameters = sheetDefinition{
-		Name:  SHEET_NAME_ASC_PARAMETERS,
-		Order: 2,
-		Columns: []string{
-			"DisplayName", "Parameters: Possible values", "Default values", "Description", "Category", "PolicyType",
-			"Reference ID", "Justification", "Cost Impact",
-		},
-		DynamicColumnIndex: "Default values",
-		GetRows: func(obj interface{}, subscriptions []string) []rowValues {
-			parameters := obj.([]PolicyParameter)
-
-			rows := make([]rowValues, 0, len(parameters))
-			for _, parameter := range parameters {
-				row := policyParameterToRowValues(parameter, subscriptions)
-				rows = append(rows, row)
-			}
-			return rows
-		},
-	}
-)
-
-type toRows = func(obj interface{}, dynamicColumns []string) []rowValues
-
+// Definition of sheet content which is known at compile-time.
 type sheetDefinition struct {
 	Name               string
 	Order              int
 	Columns            []string
-	GetRows            toRows
+	GetRows            toPartialRows
 	DynamicColumnIndex string
 }
 
+// Runtime sheet information.
 type excelSheet struct {
 	*excelize.File
+	columns          *columns
 	name             string
 	cellWidth        []int
 	defaultCellWidth []int
@@ -155,22 +180,76 @@ type excelSheet struct {
 	startY           int
 }
 
-type cellValue struct {
+type columns struct {
+	Headers            []string
+	Indexes            map[string]int
+	DynamicColumnStart int
+	DynamicColumnEnd   int
+}
+
+// Note the desired length may not be the same as the length of value as it can be multiple line value.
+type cell struct {
 	value  string
 	maxLen int
 }
 
-type rowValues []cellValue
+type partialRow map[string]cell
 
-func (sd *sheetDefinition) GetHeaders(dynamicHeaders []string) (rowValues, error) {
-	headers, err := prepareHeaders(sd.Columns, dynamicHeaders, sd.DynamicColumnIndex)
-	if err != nil {
-		return nil, err
-	}
-	values := newCellValues(headers...)
-	return values, nil
+type row []cell
+
+func (c *columns) Length() int {
+	return len(c.Headers)
 }
 
+func (c *columns) ToRowValues(values partialRow) row {
+	row := make(row, len(c.Headers))
+	for key, value := range values {
+		idx := c.Indexes[key]
+		row[idx] = value
+	}
+	return row
+}
+
+func (c *columns) GetDynamicColumnValues(values []string) map[string]string {
+	result := make(map[string]string)
+	for idx := c.DynamicColumnStart; idx < c.DynamicColumnEnd; idx++ {
+		key := c.Headers[idx]
+		result[key] = values[idx]
+	}
+	return result
+}
+
+func (c *columns) MustGetValue(values []string, column string) (string, error) {
+	v, ok := c.GetValue(values, column)
+	if !ok {
+		return "", fmt.Errorf("value for column '%s' does not exist", column)
+	}
+	return v, nil
+}
+
+func (c *columns) GetValue(values []string, column string) (string, bool) {
+	idx, ok := c.Indexes[column]
+	if !ok {
+		return "", false
+	}
+	if len(values) < idx+1 {
+		return "", false
+	}
+	return values[idx], true
+}
+
+// GetHeaders returns headers as row values.
+func (sd *sheetDefinition) GetHeaders(dynamicHeaders []string) (row, *columns, error) {
+	columns, err := newColumns(sd.Columns, dynamicHeaders, sd.DynamicColumnIndex)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	values := newCellValues(columns.Headers...)
+	return values, columns, nil
+}
+
+// newExcelSheet creates a new sheet with specified name and index.
 func newExcelSheet(f *excelize.File, name string, index int) excelSheet {
 	if index >= 0 {
 		sheetNum := len(f.GetSheetList())
@@ -197,7 +276,8 @@ func newExcelSheet(f *excelize.File, name string, index int) excelSheet {
 	}
 }
 
-func (f *excelSheet) AddRows(sheetName string, rows []rowValues) error {
+// SetRows sets the content of a sheet.
+func (f *excelSheet) SetRows(sheetName string, rows []row) error {
 	if len(rows) == 0 {
 		return errors.New("rows are empty")
 	}
@@ -216,7 +296,7 @@ func (f *excelSheet) AddRows(sheetName string, rows []rowValues) error {
 		if err != nil {
 			return err
 		}
-		f.UpdateCellWidth(row.MaxLens())
+		f.updateCellWidth(row.MaxLens())
 		values := row.Values()
 		err = f.SetSheetRow(sheetName, cell, &values)
 		if err != nil {
@@ -227,7 +307,8 @@ func (f *excelSheet) AddRows(sheetName string, rows []rowValues) error {
 	return nil
 }
 
-func (f *excelSheet) UpdateCellWidth(maxLens []int) {
+// updateCellWidth updates the cell width based on length of new row values.
+func (f *excelSheet) updateCellWidth(maxLens []int) {
 	for i := range f.cellWidth {
 		l := maxLens[i]
 		if l == 0 {
@@ -237,6 +318,7 @@ func (f *excelSheet) UpdateCellWidth(maxLens []int) {
 	}
 }
 
+// AutoFitColumnWidth sets column width to proper values after all row values are known.
 func (f *excelSheet) AutoFitColumnWidth(sheetName string) error {
 	for i, width := range f.cellWidth {
 		cellName, err := excelize.CoordinatesToCellName(f.startX+i, f.startY)
@@ -251,6 +333,7 @@ func (f *excelSheet) AutoFitColumnWidth(sheetName string) error {
 	return nil
 }
 
+// ApplyCellStyle applies default cell style to all cells in sheet.
 func (f *excelSheet) ApplyCellStyle(sheetName string) error {
 	style, err := f.NewStyle(`{
 		"alignment":
@@ -266,22 +349,22 @@ func (f *excelSheet) ApplyCellStyle(sheetName string) error {
 	return f.SetCellStyle(sheetName, "A1", "Z999", style)
 }
 
-func newCellValue(v string) cellValue {
-	return cellValue{
+func newCell(v string) cell {
+	return cell{
 		value:  v,
 		maxLen: len(v),
 	}
 }
 
-func newCellValues(values ...string) []cellValue {
-	result := make([]cellValue, 0, len(values))
+func newCellValues(values ...string) []cell {
+	result := make([]cell, 0, len(values))
 	for _, value := range values {
-		result = append(result, newCellValue(value))
+		result = append(result, newCell(value))
 	}
 	return result
 }
 
-func (r rowValues) MaxLens() []int {
+func (r row) MaxLens() []int {
 	result := make([]int, 0, len(r))
 	for _, v := range r {
 		result = append(result, v.maxLen)
@@ -289,7 +372,7 @@ func (r rowValues) MaxLens() []int {
 	return result
 }
 
-func (r rowValues) Values() []string {
+func (r row) Values() []string {
 	result := make([]string, 0, len(r))
 	for _, v := range r {
 		result = append(result, v.value)
@@ -297,46 +380,39 @@ func (r rowValues) Values() []string {
 	return result
 }
 
-func policyParameterToRowValues(parameter PolicyParameter, subscriptions []string) rowValues {
+func policyParameterToRowValues(parameter PolicyParameter) partialRow {
 	fakeParameter := parameter
 	fakeParameter.DisplayName = ""
-
-	values := newCellValues(
-		parameter.DisplayName,
-		formatParameterPossibleValues(fakeParameter),
-		formatParameterDefaultValues(fakeParameter),
-	)
-	values = append(values, make([]cellValue, len(subscriptions))...)
-	values = append(values, newCellValues(
-		parameter.Description,
-		"Security Center",
-		"BuiltIn",
-		parameter.InternalName,
-		parameter.Justification,
-		parameter.CostImpact,
-	)...)
-	return values
-}
-
-func builtInPolicyToRowValues(policy Policy, managementGroups []string) rowValues {
-	values := []cellValue{
-		newCellValue(policy.DisplayName),
-		formatParameters(policy.Parameters, formatParameterPossibleValues),
-		formatParameters(policy.Parameters, formatParameterDefaultValues),
+	return map[string]cell{
+		ColumnDisplayName:    newCell(parameter.DisplayName),
+		ColumnPossibleValues: newCell(formatParameterPossibleValues(fakeParameter)),
+		ColumnDefaultValues:  newCell(formatParameterDefaultValues(fakeParameter)),
+		ColumnDescription:    newCell(parameter.Description),
+		ColumnCategory:       newCell("Security Center"),
+		ColumnPolicyType:     newCell("Builtin"),
+		ColumnReferenceID:    newCell(parameter.InternalName),
+		ColumnJustification:  newCell(parameter.Justification),
+		ColumnCostImpact:     newCell(parameter.CostImpact),
+		ColumnParameterTypes: newCell(formatParameterTypes(fakeParameter)),
 	}
-	values = append(values, make([]cellValue, len(managementGroups))...)
-	values = append(values, newCellValues(
-		policy.Description,
-		policy.Category,
-		"BuiltIn",
-		policy.ResourceID,
-		policy.Justification,
-		policy.CostImpact,
-	)...)
-	return values
 }
 
-func formatParameters(parameters []PolicyParameter, toString func(PolicyParameter) string) cellValue {
+func builtInPolicyToRowValues(policy Policy) partialRow {
+	return map[string]cell{
+		ColumnDisplayName:    newCell(policy.DisplayName),
+		ColumnPossibleValues: formatParameters(policy.Parameters, formatParameterPossibleValues),
+		ColumnDefaultValues:  formatParameters(policy.Parameters, formatParameterDefaultValues),
+		ColumnDescription:    newCell(policy.Description),
+		ColumnCategory:       newCell(policy.Category),
+		ColumnPolicyType:     newCell("Builtin"),
+		ColumnResourceID:     newCell(policy.ResourceID),
+		ColumnJustification:  newCell(policy.Justification),
+		ColumnCostImpact:     newCell(policy.CostImpact),
+		ColumnParameterTypes: formatParameters(policy.Parameters, formatParameterTypes),
+	}
+}
+
+func formatParameters(parameters []PolicyParameter, toString func(PolicyParameter) string) cell {
 	values := make([]string, 0, len(parameters))
 	maxLen := 0
 	for _, param := range parameters {
@@ -346,10 +422,14 @@ func formatParameters(parameters []PolicyParameter, toString func(PolicyParamete
 		}
 		values = append(values, value)
 	}
-	return cellValue{
+	return cell{
 		value:  strings.Join(values, "\n"),
 		maxLen: maxLen,
 	}
+}
+
+func formatParameterTypes(param PolicyParameter) string {
+	return fmt.Sprintf("%s: %s", param.InternalName, param.Type)
 }
 
 func formatParameterPossibleValues(param PolicyParameter) string {
@@ -360,7 +440,7 @@ func formatParameterPossibleValues(param PolicyParameter) string {
 	if len(allowedValues) == 0 {
 		allowedValues = append(allowedValues, fmt.Sprintf("<%s>", param.Type))
 	}
-	return fmt.Sprintf("%s: %s", param.DisplayName, strings.Join(allowedValues, ";"))
+	return fmt.Sprintf("%s: %s", param.InternalName, strings.Join(allowedValues, ";"))
 }
 
 func formatParameterDefaultValues(param PolicyParameter) string {
@@ -370,11 +450,11 @@ func formatParameterDefaultValues(param PolicyParameter) string {
 	} else {
 		defaultValue = "<>"
 	}
-	return fmt.Sprintf("%s: %s", param.DisplayName, defaultValue)
+	return fmt.Sprintf("%s: %s", param.InternalName, defaultValue)
 }
 
-func prepareHeaders(staticHeaders []string, dynamicHeaders []string, dynamicHeaderIndex string) ([]string, error) {
-	result := make([]string, 0, len(staticHeaders)+len(dynamicHeaders)+1)
+func newColumns(staticHeaders []string, dynamicHeaders []string, dynamicHeaderIndex string) (*columns, error) {
+	headers := make([]string, 0, len(staticHeaders)+len(dynamicHeaders)+1)
 	insertAt := -1
 	for i, header := range staticHeaders {
 		if header == dynamicHeaderIndex {
@@ -386,10 +466,22 @@ func prepareHeaders(staticHeaders []string, dynamicHeaders []string, dynamicHead
 		return nil, fmt.Errorf("the index '%s' for management group is invalid", dynamicHeaderIndex)
 	}
 	insertAt++
-	result = append(result, staticHeaders[0:insertAt]...)
-	result = append(result, dynamicHeaders...)
-	result = append(result, staticHeaders[insertAt:]...)
-	return result, nil
+	headers = append(headers, staticHeaders[0:insertAt]...)
+	headers = append(headers, dynamicHeaders...)
+	headers = append(headers, staticHeaders[insertAt:]...)
+
+	headerIndexes := make(map[string]int)
+	for i, header := range headers {
+		headerIndexes[header] = i
+	}
+
+	columns := columns{
+		Headers:            headers,
+		Indexes:            headerIndexes,
+		DynamicColumnStart: insertAt,
+		DynamicColumnEnd:   insertAt + len(dynamicHeaders),
+	}
+	return &columns, nil
 }
 
 func getTargetFileName(targetDir string) string {

@@ -119,7 +119,7 @@ func fillMissingInformationFromPolicyDefinition(policy *Policy, kind TemplateFil
 	}
 
 	for _, param := range policy.Parameters {
-		if param.DisplayName == "effect" {
+		if param.InternalName == "effect" {
 			return nil
 		}
 	}
@@ -141,7 +141,7 @@ func fillMissingInformationFromPolicyDefinition(policy *Policy, kind TemplateFil
 
 	policy.Parameters = append(policy.Parameters, PolicyParameter{
 		Type:         "string",
-		DisplayName:  "effect",
+		InternalName: "effect",
 		DefaultValue: effect,
 	})
 	return nil
@@ -209,8 +209,8 @@ func (p *policyTemplate) ToPolicy() Policy {
 	params := make([]PolicyParameter, 0, len(p.Parameters))
 	for name, paramDef := range p.Parameters {
 		param := paramDef.ToPolicyParameter()
-		if param.DisplayName == "" {
-			param.DisplayName = name
+		if param.InternalName == "" {
+			param.InternalName = name
 		}
 		params = append(params, param)
 	}
@@ -224,7 +224,7 @@ func (p *policyTemplate) ToPolicy() Policy {
 func (p *policyTemplateParameter) ToPolicyParameter() PolicyParameter {
 	return PolicyParameter{
 		Type:          p.Type,
-		DisplayName:   p.Metadata.DisplayName,
+		InternalName:  p.Metadata.DisplayName,
 		Description:   p.Metadata.Description,
 		DefaultValue:  p.Metadata.DefaultValue,
 		AllowedValues: p.Metadata.AllowedValues,

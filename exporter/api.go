@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/xuri/excelize/v2"
+	"sort"
 )
 
 func ExportIntermediateFiles(ctx context.Context, config Config) error {
@@ -60,6 +61,11 @@ func syncAndExport(ctx context.Context, config Config, exporters []PolicyDefinit
 	policies = append(policies, builtinPolicies...)
 	policies = append(policies, customPolicies...)
 
+	sort.Sort(SortPoliciesByDisplayName(builtinPolicies))
+	sort.Sort(SortPoliciesByDisplayName(customPolicies))
+	sort.Sort(SortPoliciesByDisplayName(policies))
+	sort.Sort(SortPolicyParametersByInternalName(policySetParams))
+
 	for _, exporter := range exporters {
 		if exporter.PolicyExporter != nil {
 			if err := (exporter.PolicyExporter)(policies, config.TargetDir); err != nil {
@@ -112,7 +118,7 @@ func mergePolicySetParameters(params []PolicyParameter, dest *map[string]PolicyP
 		if existingParam, ok := (*dest)[k]; ok {
 			existingParam.Merge(param)
 			(*dest)[k] = existingParam
-		} else {
+		} else if param.Required {
 			(*dest)[k] = param
 		}
 	}
@@ -208,16 +214,13 @@ func getPolicyDefinitionProviders(config Config) ([]*PolicyDefinitionProvider, e
 		},
 	}
 
-	excelPolicyDef, err := ReadPolicyDefinitionFromExcel(config.ExcelFilePath, SHEET_NAME_BUILTIN_POLICIES, SHEET_NAME_CUSTOM_POLICIES, SHEET_NAME_ASC_PARAMETERS)
+	excelPolicyDef, err := ReadPolicyDefinitionFromObsoleteExcel(config.ExcelFilePath, config.ManagementGroups)
 	if err != nil {
 		return nil, err
 	}
 	excelProvider := &PolicyDefinitionProvider{
 		BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
 			return excelPolicyDef.BuiltInPolicies, nil
-		},
-		CustomPolicyReader: func(ctx context.Context) ([]Policy, error) {
-			return excelPolicyDef.CustomPolicies, nil
 		},
 		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
 			return excelPolicyDef.ASCPolicySetParameters, nil

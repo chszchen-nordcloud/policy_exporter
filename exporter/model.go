@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"context"
+	"strings"
 )
 
 type PolicyDefinitionProvider struct {
@@ -28,6 +29,10 @@ type PolicyExporter = func(policies []Policy, targetDir string) error
 
 type PolicyParameterExporter = func(parameters []PolicyParameter, targetDir string) error
 
+type SortPoliciesByDisplayName []Policy
+
+type SortPolicyParametersByInternalName []PolicyParameter
+
 // Category is used in Azure LandingZone JSON parameters files.
 type Category struct {
 	Name     string   `json:"name"`
@@ -46,14 +51,12 @@ type Policy struct {
 	Required         bool                  `json:"-" yaml:"-"`
 }
 
-type Attachment map[string]interface{}
-
-// StrictAttachment attaches a policy to a management group.
-type StrictAttachment struct {
-	Enabled    bool              `json:"enabled" yaml:"Enabled"`
-	Parameters map[string]string `json:"parameters" yaml:"Parameters"`
-	Location   string            `json:"location" yaml:"Location"`
-	Effect     string            `json:"-" yaml:"Effect"`
+// Attachment attaches a policy to a management group.
+type Attachment struct {
+	Enabled    bool                   `json:"enabled" yaml:"Enabled"`
+	Parameters map[string]interface{} `json:"parameters" yaml:"Parameters"`
+	Location   string                 `json:"location" yaml:"Location"`
+	Effect     string                 `json:"-" yaml:"Effect"`
 }
 
 type PolicyParameter struct {
@@ -65,13 +68,13 @@ type PolicyParameter struct {
 	Justification    string
 	CostImpact       string
 	AllowedValues    []interface{}
-	ManagementGroups map[string]string
+	ManagementGroups map[string]interface{}
 	Required         bool `json:"-" yaml:"-"`
 }
 
 // PolicyParameterValue is used in Azure LandingZone JSON parameter file.
 type PolicyParameterValue struct {
-	Value string `json:"value"`
+	Value interface{} `json:"value"`
 }
 
 // Merge merges two policy definitions into one.
@@ -112,7 +115,7 @@ func (p *Policy) Merge(other Policy) {
 	}
 }
 
-func (a *StrictAttachment) Merge(other StrictAttachment) {
+func (a *Attachment) Merge(other Attachment) {
 	if other.Enabled {
 		a.Enabled = other.Enabled
 	}
@@ -152,8 +155,26 @@ func (p *PolicyParameter) Merge(other PolicyParameter) {
 	p.Required = p.Required || other.Required
 }
 
-func (a *Attachment) Merge(other Attachment) {
-	for k, v := range other {
-		(*a)[k] = v
-	}
+func (p SortPoliciesByDisplayName) Len() int {
+	return len(p)
+}
+
+func (p SortPoliciesByDisplayName) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}
+
+func (p SortPoliciesByDisplayName) Less(i, j int) bool {
+	return strings.Compare(p[i].DisplayName, p[j].DisplayName) < 0
+}
+
+func (p SortPolicyParametersByInternalName) Len() int {
+	return len(p)
+}
+
+func (p SortPolicyParametersByInternalName) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}
+
+func (p SortPolicyParametersByInternalName) Less(i, j int) bool {
+	return strings.Compare(p[i].InternalName, p[j].InternalName) < 0
 }

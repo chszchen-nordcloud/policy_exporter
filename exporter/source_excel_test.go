@@ -6,16 +6,15 @@ import (
 	"testing"
 )
 
-func TestReadPolicyDefinitionFromExcel(t *testing.T) {
+func TestReadPolicyDefinitionFromObsoleteExcel(t *testing.T) {
 	if SkipTest() {
 		return
 	}
 	base := TestResourceDir()
-	result, err := ReadPolicyDefinitionFromExcel(
-		filepath.Join(base, "Azure Cloud Foundation - Baseline Policies.xlsx"), "", "", "")
+	result, err := ReadPolicyDefinitionFromObsoleteExcel(
+		filepath.Join(base, "Azure Cloud Foundation - Baseline Policies.xlsx"), nil)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result.BuiltInPolicies)
-	assert.NotEmpty(t, result.CustomPolicies)
 	assert.NotEmpty(t, result.ASCPolicySetParameters)
 
 	var expectedPolicy Policy
@@ -27,10 +26,6 @@ func TestReadPolicyDefinitionFromExcel(t *testing.T) {
 	}
 	assert.NotEqual(t, "", expectedPolicy.Justification)
 
-	customPolicy := result.CustomPolicies[0]
-	assert.NotEqual(t, "", customPolicy.DisplayName)
-	assert.NotEqual(t, "", customPolicy.Description)
-
 	var expectedParameter PolicyParameter
 	for _, param := range result.ASCPolicySetParameters {
 		if param.Justification != "" && param.CostImpact != "" {
@@ -39,6 +34,26 @@ func TestReadPolicyDefinitionFromExcel(t *testing.T) {
 	}
 	assert.NotEqual(t, "", expectedParameter.Justification)
 	assert.NotEqual(t, "", expectedParameter.CostImpact)
+
+	_ = PrettyPrint(result)
+}
+
+func TestReadPolicyDefinitionFromExcel(t *testing.T) {
+	if SkipTest() {
+		return
+	}
+	base := TestResourceDir()
+	result, err := ReadPolicyDefinitionFromExcel(
+		filepath.Join(base, "Azure Cloud Foundation - Baseline Policies - WithUserInputs.xlsx"),
+		[]string{"Management", "Production", "Non-Prod", "Sandbox"},
+	)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, result.BuiltInPolicies)
+	assert.NotEmpty(t, result.CustomPolicies)
+	assert.NotEmpty(t, result.ASCPolicySetParameters)
+
+	customPolicy := result.CustomPolicies[0]
+	assert.NotEqual(t, "", customPolicy.DisplayName)
 
 	_ = PrettyPrint(result)
 }

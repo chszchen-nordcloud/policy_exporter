@@ -31,7 +31,7 @@ The content is update at {{.Timestamp}}
 
 Internal Name | Policy Definition {{range .ManagementGroups}}| {{.}}{{end}}| Description | Justification | Cost Impact
 ----------- | ----------- {{range .ManagementGroups}}| ----------- {{end}}| ----------- | ----------- | ----------- 
-{{range $param := .Parameters }}{{.InternalName}}      | {{.DisplayName}} {{range $groupName := $.ManagementGroups}}| {{with index $param.ManagementGroups $groupName}}{{.}}{{end}} {{end}} | {{.Description}} | {{.Justification }} | {{.CostImpact}}
+{{range $param := .Parameters }}{{.DisplayName}}      | {{.DisplayName}} {{range $groupName := $.ManagementGroups}}| {{with index $param.ManagementGroups $groupName}}{{.}}{{end}} {{end}} | {{.Description}} | {{.Justification }} | {{.CostImpact}}
 {{end}}
 `
 )

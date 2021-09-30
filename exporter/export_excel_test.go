@@ -71,10 +71,10 @@ func getAdhocPolicies() []Policy {
 			ResourceID:  "/providers/Microsoft.Authorization/policyDefinitions/0004bbf0-5099-4179-869e-e9ffe5fb0945",
 			Description: "Audit virtual machines which do not have disaster recovery configured. To learn more about disaster recovery, visit https://aka.ms/asr-doc.",
 			ManagementGroups: map[string]Attachment{
-				"MANAGEMENT": {"Effect": "Audit"},
-				"PRODUCTION": {"Effect": "Audit"},
-				"NON-PROD":   {"Effect": "Audit"},
-				"SANDBOX":    {"Effect": "Audit"},
+				"MANAGEMENT": {Effect: "Audit"},
+				"PRODUCTION": {Effect: "Audit"},
+				"NON-PROD":   {Effect: "Audit"},
+				"SANDBOX":    {Effect: "Audit"},
 			},
 		},
 	}
