@@ -5,6 +5,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/policy"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
+	"strings"
 )
 
 type AzureAPI struct {
@@ -49,10 +50,9 @@ func parsePolicyParameter(paramDefs map[string]*policy.ParameterDefinitionsValue
 	result := make([]PolicyParameter, 0, len(paramDefs))
 	for internalName, paramDef := range paramDefs {
 		p := PolicyParameter{
-			InternalName:           internalName,
-			Type:                   string(paramDef.Type),
-			DefaultValue:           paramDef.DefaultValue,
-			AlwaysIncludedInExport: true,
+			InternalName: internalName,
+			Type:         string(paramDef.Type),
+			DefaultValue: paramDef.DefaultValue,
 		}
 		if paramDef.AllowedValues != nil {
 			p.AllowedValues = *paramDef.AllowedValues
@@ -83,11 +83,16 @@ func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, mana
 			return nil, err
 		}
 		policyDef := list.Value()
+
+		displayName := *policyDef.DisplayName
+		if strings.HasPrefix(displayName, "[Deprecated]") || strings.HasPrefix(displayName, "[Preview]") {
+			continue
+		}
+
 		p := Policy{
-			DisplayName:            *policyDef.DisplayName,
-			ResourceID:             *policyDef.ID,
-			Parameters:             parsePolicyParameter(policyDef.Parameters),
-			AlwaysIncludedInExport: true,
+			DisplayName: *policyDef.DisplayName,
+			ResourceID:  *policyDef.ID,
+			Parameters:  parsePolicyParameter(policyDef.Parameters),
 		}
 		if policyDef.Description != nil {
 			p.Description = *policyDef.Description

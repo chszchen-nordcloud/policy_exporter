@@ -33,6 +33,12 @@ type SortPoliciesByDisplayName []Policy
 
 type SortPolicyParametersByInternalName []PolicyParameter
 
+type UniqueResource interface {
+	ID() interface{}
+
+	Merge(other UniqueResource)
+}
+
 // Category is used in Azure LandingZone JSON parameters files.
 type Category struct {
 	Name     string   `json:"name"`
@@ -40,15 +46,14 @@ type Category struct {
 }
 
 type Policy struct {
-	Category               string                `json:"-" yaml:"Category"`
-	DisplayName            string                `json:"name" yaml:"DisplayName"`
-	ResourceID             string                `json:"-" yaml:"ResourceID"`
-	Justification          string                `json:"-" yaml:"Justification"`
-	CostImpact             string                `json:"-" yaml:"CostImpact"`
-	Description            string                `json:"-" yaml:"Description"`
-	Parameters             []PolicyParameter     `json:"-" yaml:"-"`
-	ManagementGroups       map[string]Attachment `json:"managementGroups" yaml:"ManagementGroups"`
-	AlwaysIncludedInExport bool                  `json:"-" yaml:"-"`
+	Category         string                `json:"-" yaml:"Category"`
+	DisplayName      string                `json:"name" yaml:"DisplayName"`
+	ResourceID       string                `json:"-" yaml:"ResourceID"`
+	Justification    string                `json:"-" yaml:"Justification"`
+	CostImpact       string                `json:"-" yaml:"CostImpact"`
+	Description      string                `json:"-" yaml:"Description"`
+	Parameters       []PolicyParameter     `json:"-" yaml:"-"`
+	ManagementGroups map[string]Attachment `json:"managementGroups" yaml:"ManagementGroups"`
 }
 
 // Attachment attaches a policy to a management group.
@@ -60,16 +65,15 @@ type Attachment struct {
 }
 
 type PolicyParameter struct {
-	InternalName           string
-	Type                   string
-	DisplayName            string
-	Description            string
-	DefaultValue           interface{}
-	Justification          string
-	CostImpact             string
-	AllowedValues          []interface{}
-	ManagementGroups       map[string]interface{}
-	AlwaysIncludedInExport bool `json:"-" yaml:"-"`
+	InternalName     string
+	Type             string
+	DisplayName      string
+	Description      string
+	DefaultValue     interface{}
+	Justification    string
+	CostImpact       string
+	AllowedValues    []interface{}
+	ManagementGroups map[string]interface{}
 }
 
 // PolicyParameterValue is used in Azure LandingZone JSON parameter file.
@@ -77,8 +81,17 @@ type PolicyParameterValue struct {
 	Value interface{} `json:"value"`
 }
 
+func (p *Policy) ID() interface{} {
+	return p.DisplayName
+}
+
+func (p *PolicyParameter) ID() interface{} {
+	return p.InternalName
+}
+
 // Merge merges two policy definitions into one.
-func (p *Policy) Merge(other Policy) {
+func (p *Policy) Merge(otherResource UniqueResource) {
+	other := otherResource.(*Policy)
 	if p.DisplayName == "" {
 		p.DisplayName = other.DisplayName
 	}
@@ -100,7 +113,6 @@ func (p *Policy) Merge(other Policy) {
 	if p.CostImpact == "" {
 		p.CostImpact = other.CostImpact
 	}
-	p.AlwaysIncludedInExport = p.AlwaysIncludedInExport || other.AlwaysIncludedInExport
 	if p.ManagementGroups == nil {
 		p.ManagementGroups = make(map[string]Attachment)
 	}
@@ -130,7 +142,8 @@ func (a *Attachment) Merge(other Attachment) {
 	}
 }
 
-func (p *PolicyParameter) Merge(other PolicyParameter) {
+func (p *PolicyParameter) Merge(otherResource UniqueResource) {
+	other := otherResource.(*PolicyParameter)
 	if p.InternalName == "" {
 		p.InternalName = other.InternalName
 	}
@@ -160,7 +173,6 @@ func (p *PolicyParameter) Merge(other PolicyParameter) {
 			p.ManagementGroups[k] = v
 		}
 	}
-	p.AlwaysIncludedInExport = p.AlwaysIncludedInExport || other.AlwaysIncludedInExport
 }
 
 func (p SortPoliciesByDisplayName) Len() int {
@@ -185,4 +197,23 @@ func (p SortPolicyParametersByInternalName) Swap(i, j int) {
 
 func (p SortPolicyParametersByInternalName) Less(i, j int) bool {
 	return strings.Compare(p[i].InternalName, p[j].InternalName) < 0
+}
+
+func Unique(valuesWithID []UniqueResource) []UniqueResource {
+	m := make(map[interface{}]UniqueResource)
+	for i := range valuesWithID {
+		k := valuesWithID[i].ID()
+		v, ok := m[k]
+		if ok {
+			v.Merge(valuesWithID[i])
+		} else {
+			m[k] = valuesWithID[i]
+		}
+	}
+
+	uniqueValues := make([]UniqueResource, 0, len(m))
+	for _, v := range m {
+		uniqueValues = append(uniqueValues, v)
+	}
+	return uniqueValues
 }

@@ -77,17 +77,31 @@ var (
 	}
 )
 
-func ReadPolicyDefinitionFromObsoleteExcel(sourceFilePath string, managementGroups []string) (*excelPolicyDefinition, error) {
-	return readPolicyDefinitionFromExcel(sourceFilePath, managementGroups, ExcelPolicyDefinitionReader{
+func ReadPolicyDefinitionFromObsoleteExcel(sourceFilePath string, managementGroups []string) (*ExcelPolicyDefinition, error) {
+	result, err := readPolicyDefinitionFromExcel(sourceFilePath, managementGroups, ExcelPolicyDefinitionReader{
 		BuiltInPoliciesReader:     &obsoleteBuiltinPoliciesSheetReader,
 		ASCPolicyParametersReader: &obsoleteASCPolicyParametersSheetReader,
 	})
+	if err != nil {
+		return nil, err
+	}
+	parameters := make([]UniqueResource, len(result.ASCPolicySetParameters))
+	for i := range result.ASCPolicySetParameters {
+		parameters[i] = &result.ASCPolicySetParameters[i]
+	}
+	uniqueResources := Unique(parameters)
+	uniqueParameters := make([]PolicyParameter, len(uniqueResources))
+	for i := range uniqueResources {
+		uniqueParameters[i] = *(uniqueResources[i].(*PolicyParameter))
+	}
+	result.ASCPolicySetParameters = uniqueParameters
+	return result, nil
 }
 
 // ReadPolicyDefinitionFromExcel is mainly used to read data that has to be provided manually. Because there is no need
 // to parse the information that is automatically generated. Currently, management group columns and justification,
 // cost impact are read from the file.
-func ReadPolicyDefinitionFromExcel(sourceFilePath string, managementGroups []string) (*excelPolicyDefinition, error) {
+func ReadPolicyDefinitionFromExcel(sourceFilePath string, managementGroups []string) (*ExcelPolicyDefinition, error) {
 	return readPolicyDefinitionFromExcel(sourceFilePath, managementGroups, ExcelPolicyDefinitionReader{
 		BuiltInPoliciesReader:     &builtinPoliciesSheetReader,
 		CustomPoliciesReader:      &customPoliciesSheetReader,
@@ -97,13 +111,13 @@ func ReadPolicyDefinitionFromExcel(sourceFilePath string, managementGroups []str
 
 func readPolicyDefinitionFromExcel(
 	sourceFilePath string, managementGroups []string, excelReader ExcelPolicyDefinitionReader,
-) (*excelPolicyDefinition, error) {
+) (*ExcelPolicyDefinition, error) {
 	f, err := excelize.OpenFile(sourceFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open excel file due to: %w", err)
 	}
 
-	var result excelPolicyDefinition
+	var result ExcelPolicyDefinition
 
 	if excelReader.BuiltInPoliciesReader != nil {
 		policies, err := readPoliciesFromSheet(f, managementGroups, excelReader.BuiltInPoliciesReader)
@@ -138,7 +152,7 @@ type ExcelPolicyDefinitionReader struct {
 	ASCPolicyParametersReader *policyParameterSheetReader
 }
 
-type excelPolicyDefinition struct {
+type ExcelPolicyDefinition struct {
 	BuiltInPolicies        []Policy
 	CustomPolicies         []Policy
 	ASCPolicySetParameters []PolicyParameter

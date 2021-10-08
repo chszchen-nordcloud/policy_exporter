@@ -98,33 +98,41 @@ func syncAndExport(ctx context.Context, config Config, providers []*PolicyDefini
 }
 
 func mergePolicies(policies []Policy, dest *map[string]Policy) {
+	initialize := false
+	if len(*dest) == 0 {
+		initialize = true
+	}
 	for _, policy := range policies {
 		k := policy.DisplayName
 		if k == "" {
 			fmt.Printf("ingore policy whose name is empty: %v\n", policy)
 			continue
 		}
-		if existingPolicy, ok := (*dest)[k]; ok {
-			existingPolicy.Merge(policy)
-			(*dest)[k] = existingPolicy
-		} else if policy.AlwaysIncludedInExport {
+		if initialize {
 			(*dest)[k] = policy
+		} else if existingPolicy, ok := (*dest)[k]; ok {
+			(&existingPolicy).Merge(&policy)
+			(*dest)[k] = existingPolicy
 		}
 	}
 }
 
 func mergePolicySetParameters(params []PolicyParameter, dest *map[string]PolicyParameter) {
+	initialize := false
+	if len(*dest) == 0 {
+		initialize = true
+	}
 	for _, param := range params {
 		k := param.InternalName
 		if k == "" {
 			fmt.Printf("ingore parameter whose name is empty: %v\n", param)
 			continue
 		}
-		if existingParam, ok := (*dest)[k]; ok {
-			existingParam.Merge(param)
-			(*dest)[k] = existingParam
-		} else if param.AlwaysIncludedInExport {
+		if initialize {
 			(*dest)[k] = param
+		} else if existingParam, ok := (*dest)[k]; ok {
+			(&existingParam).Merge(&param)
+			(*dest)[k] = existingParam
 		}
 	}
 }
@@ -201,6 +209,18 @@ func getPolicyDefinitionProvidersForFinalExport(config Config) ([]*PolicyDefinit
 		return nil, err
 	}
 
+	intermediateExcelFileProvider, err := getIntermediateExcelFileProvider(config)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*PolicyDefinitionProvider, 0, len(intermediateExporters)+1)
+	result = append(result, intermediateExporters...)
+	result = append(result, intermediateExcelFileProvider)
+	return result, nil
+}
+
+func getIntermediateExcelFileProvider(config Config) (*PolicyDefinitionProvider, error) {
 	excelPolicyDef, err := ReadPolicyDefinitionFromExcel(config.ExcelFilePath, config.ManagementGroups)
 	if err != nil {
 		return nil, err
@@ -216,14 +236,45 @@ func getPolicyDefinitionProvidersForFinalExport(config Config) ([]*PolicyDefinit
 			return excelPolicyDef.ASCPolicySetParameters, nil
 		},
 	}
-
-	result := make([]*PolicyDefinitionProvider, 0, len(intermediateExporters)+1)
-	result = append(result, intermediateExporters...)
-	result = append(result, excelProvider)
-	return result, nil
+	return excelProvider, nil
 }
 
 func getPolicyDefinitionProvidersForIntermediateExport(config Config) ([]*PolicyDefinitionProvider, error) {
+	azureAPIProvider, err := getAzureAPIProvider(config)
+	if err != nil {
+		return nil, err
+	}
+
+	localRepoProvider, err := getLocalLandingZoneRepositoryProvider(config)
+	if err != nil {
+		return nil, err
+	}
+
+	result := []*PolicyDefinitionProvider{
+		azureAPIProvider,
+		localRepoProvider,
+	}
+
+	if config.OldBaselineExcelFilePath != "" {
+		oldExcelProvider, err := getOldBaselineExcelFileProvider(config)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, oldExcelProvider)
+	}
+
+	if config.YAMLFilePath != "" {
+		yamlProvider, err := getYAMLFileProvider(config)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, yamlProvider)
+	}
+
+	return result, nil
+}
+
+func getAzureAPIProvider(config Config) (*PolicyDefinitionProvider, error) {
 	api, err := NewAzureAPI(config.SubscriptionID)
 	if err != nil {
 		return nil, err
@@ -236,7 +287,10 @@ func getPolicyDefinitionProvidersForIntermediateExport(config Config) ([]*Policy
 			return api.GetPolicySetParameters(ctx, config.PolicyQueryASCPolicySetName)
 		},
 	}
+	return azureAPIProvider, nil
+}
 
+func getLocalLandingZoneRepositoryProvider(config Config) (*PolicyDefinitionProvider, error) {
 	localRepoDef, err := ReadCustomPoliciesFromLocalRepository(config.LocalLandingZoneRepoDir)
 	if err != nil {
 		return nil, err
@@ -246,46 +300,40 @@ func getPolicyDefinitionProvidersForIntermediateExport(config Config) ([]*Policy
 			return localRepoDef, nil
 		},
 	}
+	return localRepoProvider, nil
+}
 
-	result := []*PolicyDefinitionProvider{
-		azureAPIProvider,
-		localRepoProvider,
+func getOldBaselineExcelFileProvider(config Config) (*PolicyDefinitionProvider, error) {
+	excelPolicyDef, err := ReadPolicyDefinitionFromObsoleteExcel(config.OldBaselineExcelFilePath, config.ManagementGroups)
+	if err != nil {
+		return nil, err
 	}
-
-	if config.OldBaselineExcelFilePath != "" {
-		excelPolicyDef, err := ReadPolicyDefinitionFromObsoleteExcel(config.OldBaselineExcelFilePath, config.ManagementGroups)
-		if err != nil {
-			return nil, err
-		}
-		excelProvider := &PolicyDefinitionProvider{
-			BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
-				return excelPolicyDef.BuiltInPolicies, nil
-			},
-			ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
-				return excelPolicyDef.ASCPolicySetParameters, nil
-			},
-		}
-		result = append(result, excelProvider)
+	excelProvider := &PolicyDefinitionProvider{
+		BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
+			return excelPolicyDef.BuiltInPolicies, nil
+		},
+		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
+			return excelPolicyDef.ASCPolicySetParameters, nil
+		},
 	}
+	return excelProvider, nil
+}
 
-	if config.YAMLFilePath != "" {
-		yamlPolicyDef, err := ReadPolicyDefinitionFromYAML(config.YAMLFilePath)
-		if err != nil {
-			return nil, err
-		}
-		yamlProvider := &PolicyDefinitionProvider{
-			BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
-				return yamlPolicyDef.BuiltInPolicies, nil
-			},
-			CustomPolicyReader: func(ctx context.Context) ([]Policy, error) {
-				return yamlPolicyDef.CustomPolicies, nil
-			},
-			ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
-				return yamlPolicyDef.ASCPolicySetParameters, nil
-			},
-		}
-		result = append(result, yamlProvider)
+func getYAMLFileProvider(config Config) (*PolicyDefinitionProvider, error) {
+	yamlPolicyDef, err := ReadPolicyDefinitionFromYAML(config.YAMLFilePath)
+	if err != nil {
+		return nil, err
 	}
-
-	return result, nil
+	yamlProvider := &PolicyDefinitionProvider{
+		BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
+			return yamlPolicyDef.BuiltInPolicies, nil
+		},
+		CustomPolicyReader: func(ctx context.Context) ([]Policy, error) {
+			return yamlPolicyDef.CustomPolicies, nil
+		},
+		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
+			return yamlPolicyDef.ASCPolicySetParameters, nil
+		},
+	}
+	return yamlProvider, nil
 }
