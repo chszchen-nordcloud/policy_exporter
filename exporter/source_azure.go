@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"context"
+	"fmt"
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/policy"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
@@ -89,8 +90,14 @@ func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, mana
 			continue
 		}
 
+		staticEffect := getBuiltinPolicyStaticEffect(policyDef.PolicyRule)
+		if staticEffect == nil {
+			return nil, fmt.Errorf("the effect is not found within the policy definition: '%s'", *policyDef.DisplayName)
+		}
+
 		p := Policy{
 			DisplayName: *policyDef.DisplayName,
+			Effect:      *staticEffect,
 			ResourceID:  *policyDef.ID,
 			Parameters:  parsePolicyParameter(policyDef.Parameters),
 		}
@@ -119,4 +126,22 @@ func getBuiltinPolicyCategory(metadata interface{}) (string, bool) {
 		return "", false
 	}
 	return categoryStr, true
+}
+
+func getBuiltinPolicyStaticEffect(policyRule interface{}) *string {
+	ifAndThen, ok := policyRule.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	then, ok := ifAndThen["then"]
+	if !ok {
+		return nil
+	}
+	thenMap := then.(map[string]interface{})
+	effect, ok := thenMap["effect"]
+	if !ok {
+		return nil
+	}
+	effectStr := effect.(string)
+	return &effectStr
 }

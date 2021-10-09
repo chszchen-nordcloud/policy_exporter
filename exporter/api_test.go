@@ -18,13 +18,7 @@ func TestExportIntermediateFiles(t *testing.T) {
 	assert.NoError(t, err)
 
 	ctx := context.Background()
-	resourceDir := "test_resources"
-	configFilePath := filepath.Join(resourceDir, "example_config.yaml")
-	config, err := buildConfig(&configFilePath, []string{resourceDir})
-	assert.NoError(t, err)
-
-	err = config.Validate()
-	assert.NoError(t, err)
+	config := getConfigForAPITest(t)
 
 	// A flag to skip the exporting part.
 	if !skipExportDuringTest() {
@@ -32,7 +26,6 @@ func TestExportIntermediateFiles(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	config.ExcelFilePath = getTargetFileName(resourceDir)
 	excelProvider, err := getIntermediateExcelFileProvider(*config)
 	assert.NoError(t, err)
 
@@ -122,6 +115,38 @@ func assertPolicyMatchesWhen(t *testing.T, values []Policy, expectedValues []Pol
 			}
 		}
 	}
+}
+
+func TestExportFinal(t *testing.T) {
+	if SkipTest() {
+		return
+	}
+
+	// There are relative paths in the configuration file which are relative to the parent directory.
+	err := os.Chdir("..")
+	assert.NoError(t, err)
+
+	ctx := context.Background()
+	config := getConfigForAPITest(t)
+
+	// A flag to skip the exporting part.
+	if !skipExportDuringTest() {
+		err := ExportFinal(ctx, *config)
+		assert.NoError(t, err)
+	}
+}
+
+func getConfigForAPITest(t *testing.T) *Config {
+	resourceDir := "test_resources"
+	configFilePath := filepath.Join(resourceDir, "example_config.yaml")
+	config, err := buildConfig(&configFilePath, []string{resourceDir})
+	assert.NoError(t, err)
+	config.ExcelFilePath = getTargetFileName(resourceDir)
+
+	err = config.Validate()
+	assert.NoError(t, err)
+
+	return config
 }
 
 func assertPolicyParameterMatchesWhen(t *testing.T, values []PolicyParameter, expectedValues []PolicyParameter,

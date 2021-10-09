@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	BASE_DIR = "Governance/Policies/Templates"
+	BaseDir = "Governance/Policies/Templates"
 )
 
 type TemplateFileKind int
@@ -50,7 +50,7 @@ type templateFileInfo struct {
 }
 
 func ReadCustomPoliciesFromLocalRepository(repositoryDir string) ([]Policy, error) {
-	rootDir := filepath.Join(repositoryDir, BASE_DIR)
+	rootDir := filepath.Join(repositoryDir, BaseDir)
 	policies := make([]Policy, 0, 64)
 	err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, previousErr error) error {
 		if previousErr != nil {
@@ -117,10 +117,16 @@ func fillMissingInformationFromPolicyDefinition(policy *Policy, kind TemplateFil
 		return nil
 	}
 
-	for _, param := range policy.Parameters {
-		if param.InternalName == "effect" {
-			return nil
+	var effectParam *PolicyParameter
+	for i := range policy.Parameters {
+		if policy.Parameters[i].InternalName == "effect" {
+			effectParam = &policy.Parameters[i]
+			break
 		}
+	}
+
+	if effectParam != nil && effectParam.DefaultValue != nil {
+		return nil
 	}
 
 	b, err := ioutil.ReadFile(definitionPath)
@@ -133,16 +139,16 @@ func fillMissingInformationFromPolicyDefinition(policy *Policy, kind TemplateFil
 		return err
 	}
 	obj := JSONObject(m)
-	effect, err := obj.GetString("effect")
+	effect, err := obj.GetString("then", "effect")
 	if err != nil {
-		return nil
+		return err
 	}
 
-	policy.Parameters = append(policy.Parameters, PolicyParameter{
-		Type:         "string",
-		InternalName: "effect",
-		DefaultValue: effect,
-	})
+	if effectParam == nil {
+		policy.Effect = effect
+	} else {
+		effectParam.DefaultValue = effect
+	}
 	return nil
 }
 
@@ -208,9 +214,7 @@ func (p *policyTemplate) ToPolicy() Policy {
 	params := make([]PolicyParameter, 0, len(p.Parameters))
 	for name, paramDef := range p.Parameters {
 		param := paramDef.ToPolicyParameter()
-		if param.InternalName == "" {
-			param.InternalName = name
-		}
+		param.InternalName = name
 		params = append(params, param)
 	}
 	return Policy{
@@ -223,7 +227,7 @@ func (p *policyTemplate) ToPolicy() Policy {
 func (p *policyTemplateParameter) ToPolicyParameter() PolicyParameter {
 	return PolicyParameter{
 		Type:          p.Type,
-		InternalName:  p.Metadata.DisplayName,
+		DisplayName:   p.Metadata.DisplayName,
 		Description:   p.Metadata.Description,
 		DefaultValue:  p.Metadata.DefaultValue,
 		AllowedValues: p.Metadata.AllowedValues,

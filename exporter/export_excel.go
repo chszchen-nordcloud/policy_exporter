@@ -422,10 +422,11 @@ func policyParameterToRowValues(parameter PolicyParameter) partialRow {
 
 // converts a builtin policy to row values.
 func builtInPolicyToRowValues(policy Policy) partialRow {
+	parameters := getParametersOfPolicyForExport(policy)
 	return map[string]cell{
 		ColumnDisplayName:    newCell(policy.DisplayName),
-		ColumnPossibleValues: formatParameters(policy.Parameters, formatParameterPossibleValues),
-		ColumnDefaultValues:  formatParameters(policy.Parameters, formatParameterDefaultValues),
+		ColumnPossibleValues: formatParameters(parameters, formatParameterPossibleValues),
+		ColumnDefaultValues:  formatParameters(parameters, formatParameterDefaultValues),
 		ColumnDescription:    newCell(policy.Description),
 		ColumnCategory:       newCell(policy.Category),
 		ColumnPolicyType:     newCell("Builtin"),
@@ -511,6 +512,28 @@ func newColumns(staticHeaders []string, dynamicHeaders []string, dynamicHeaderIn
 		dynamicColumnEnd:   insertAt + len(dynamicHeaders),
 	}
 	return &columns, nil
+}
+
+func getParametersOfPolicyForExport(policy Policy) []PolicyParameter {
+	parameters := policy.Parameters
+	var effectParam *PolicyParameter
+	for i := range parameters {
+		if parameters[i].InternalName == "effect" {
+			effectParam = &parameters[i]
+		}
+	}
+	if effectParam != nil {
+		if effectParam.DefaultValue == nil {
+			effectParam.DefaultValue = policy.Effect
+		}
+	} else {
+		parameters = append(parameters, PolicyParameter{
+			InternalName: "*effect",
+			Type:         "string",
+			DefaultValue: policy.Effect,
+		})
+	}
+	return parameters
 }
 
 func getTargetFileName(targetDir string) string {

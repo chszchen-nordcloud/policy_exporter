@@ -48,6 +48,7 @@ type Category struct {
 type Policy struct {
 	Category         string                `json:"-" yaml:"Category"`
 	DisplayName      string                `json:"name" yaml:"DisplayName"`
+	Effect           string                `json:"-" yaml:"-"`
 	ResourceID       string                `json:"-" yaml:"ResourceID"`
 	Justification    string                `json:"-" yaml:"Justification"`
 	CostImpact       string                `json:"-" yaml:"CostImpact"`
