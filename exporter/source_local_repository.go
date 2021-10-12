@@ -94,6 +94,9 @@ func ReadCustomPoliciesFromLocalRepository(repositoryDir string) ([]Policy, erro
 		}
 
 		policy := policyParamsTmpl.ToPolicy()
+		if templateInfo.Kind == InitiativeDefinition {
+			policy.IsInitiative = true
+		}
 
 		category, err := getCategoryFromFilePath(rootDir, path)
 		if err != nil {

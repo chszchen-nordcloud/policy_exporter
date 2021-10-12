@@ -73,43 +73,103 @@ func parsePolicyParameter(paramDefs map[string]*policy.ParameterDefinitionsValue
 
 // ListBuiltInPolicyByManagementGroup returns all builtin policies attached to a management group.
 func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, managementGroupID string) ([]Policy, error) {
-	page, err := az.policyAPI.ListByManagementGroup(ctx, managementGroupID)
+	policyPage, err := az.policyAPI.ListByManagementGroup(ctx, managementGroupID)
 	if err != nil {
 		return nil, err
 	}
 
+	policySetPage, err := az.policySetAPI.ListByManagementGroup(ctx, managementGroupID)
+	if err != nil {
+		return nil, err
+	}
+
+	isPreviewOrDeprecated := func(displayName string) bool {
+		return strings.HasPrefix(displayName, "[Deprecated]") || strings.HasPrefix(displayName, "[Preview]")
+	}
+
+	policiesInInitiatives := make(map[string]bool)
 	var result []Policy
-	for list := policy.NewDefinitionListResultIterator(page); list.NotDone(); err = list.NextWithContext(ctx) {
+	for list := policy.NewSetDefinitionListResultIterator(policySetPage); list.NotDone(); err = list.NextWithContext(ctx) {
+		if err != nil {
+			return nil, err
+		}
+		policySetDef := list.Value()
+
+		displayName := *policySetDef.DisplayName
+		if isPreviewOrDeprecated(displayName) {
+			continue
+		}
+
+		for _, child := range *policySetDef.PolicyDefinitions {
+			policiesInInitiatives[*child.PolicyDefinitionID] = true
+		}
+
+		p, err := policySetDefToPolicy(policySetDef)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, *p)
+	}
+
+	for list := policy.NewDefinitionListResultIterator(policyPage); list.NotDone(); err = list.NextWithContext(ctx) {
 		if err != nil {
 			return nil, err
 		}
 		policyDef := list.Value()
 
-		displayName := *policyDef.DisplayName
-		if strings.HasPrefix(displayName, "[Deprecated]") || strings.HasPrefix(displayName, "[Preview]") {
+		if _, ok := policiesInInitiatives[*policyDef.ID]; ok {
 			continue
 		}
 
-		staticEffect := getBuiltinPolicyStaticEffect(policyDef.PolicyRule)
-		if staticEffect == nil {
-			return nil, fmt.Errorf("the effect is not found within the policy definition: '%s'", *policyDef.DisplayName)
+		displayName := *policyDef.DisplayName
+		if isPreviewOrDeprecated(displayName) {
+			continue
 		}
 
-		p := Policy{
-			DisplayName: *policyDef.DisplayName,
-			Effect:      *staticEffect,
-			ResourceID:  *policyDef.ID,
-			Parameters:  parsePolicyParameter(policyDef.Parameters),
+		p, err := policyDefToPolicy(policyDef)
+		if err != nil {
+			return nil, err
 		}
-		if policyDef.Description != nil {
-			p.Description = *policyDef.Description
-		}
-		if category, ok := getBuiltinPolicyCategory(policyDef.Metadata); ok {
-			p.Category = category
-		}
-		result = append(result, p)
+		result = append(result, *p)
 	}
 	return result, nil
+}
+
+func policySetDefToPolicy(policyDef policy.SetDefinition) (*Policy, error) {
+	p := Policy{
+		DisplayName:  *policyDef.DisplayName,
+		ResourceID:   *policyDef.ID,
+		Parameters:   parsePolicyParameter(policyDef.Parameters),
+		IsInitiative: true,
+	}
+	if policyDef.Description != nil {
+		p.Description = *policyDef.Description
+	}
+	if category, ok := getBuiltinPolicyCategory(policyDef.Metadata); ok {
+		p.Category = category
+	}
+	return &p, nil
+}
+
+func policyDefToPolicy(policyDef policy.Definition) (*Policy, error) {
+	staticEffect := getBuiltinPolicyStaticEffect(policyDef.PolicyRule)
+	if staticEffect == nil {
+		return nil, fmt.Errorf("the effect is not found within the policy definition: '%s'", *policyDef.DisplayName)
+	}
+
+	p := Policy{
+		DisplayName: *policyDef.DisplayName,
+		Effect:      *staticEffect,
+		ResourceID:  *policyDef.ID,
+		Parameters:  parsePolicyParameter(policyDef.Parameters),
+	}
+	if policyDef.Description != nil {
+		p.Description = *policyDef.Description
+	}
+	if category, ok := getBuiltinPolicyCategory(policyDef.Metadata); ok {
+		p.Category = category
+	}
+	return &p, nil
 }
 
 func getBuiltinPolicyCategory(metadata interface{}) (string, bool) {

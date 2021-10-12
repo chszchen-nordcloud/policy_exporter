@@ -343,7 +343,11 @@ func (f *excelSheet) AutoFitColumnWidth(sheetName string) error {
 		if err != nil {
 			return err
 		}
-		err = f.SetColWidth(sheetName, cellName[0:1], cellName[0:1], float64(width)/float64(f.rowCount)+2)
+		widthToUse := float64(width)/float64(f.rowCount) + 2
+		if widthToUse > 255.0 {
+			widthToUse = 255.0
+		}
+		err = f.SetColWidth(sheetName, cellName[0:1], cellName[0:1], widthToUse)
 		if err != nil {
 			return err
 		}
@@ -422,11 +426,10 @@ func policyParameterToRowValues(parameter PolicyParameter) partialRow {
 
 // converts a builtin policy to row values.
 func builtInPolicyToRowValues(policy Policy) partialRow {
-	parameters := getParametersOfPolicyForExport(policy)
 	return map[string]cell{
 		ColumnDisplayName:    newCell(policy.DisplayName),
-		ColumnPossibleValues: formatParameters(parameters, formatParameterPossibleValues),
-		ColumnDefaultValues:  formatParameters(parameters, formatParameterDefaultValues),
+		ColumnPossibleValues: formatParameters(getParametersOfPolicyForExport(policy, false), formatParameterPossibleValues),
+		ColumnDefaultValues:  formatParameters(getParametersOfPolicyForExport(policy, true), formatParameterDefaultValues),
 		ColumnDescription:    newCell(policy.Description),
 		ColumnCategory:       newCell(policy.Category),
 		ColumnPolicyType:     newCell("Builtin"),
@@ -514,8 +517,12 @@ func newColumns(staticHeaders []string, dynamicHeaders []string, dynamicHeaderIn
 	return &columns, nil
 }
 
-func getParametersOfPolicyForExport(policy Policy) []PolicyParameter {
+func getParametersOfPolicyForExport(policy Policy, addEffectParam bool) []PolicyParameter {
 	parameters := policy.Parameters
+	if policy.IsInitiative {
+		return parameters
+	}
+
 	var effectParam *PolicyParameter
 	for i := range parameters {
 		if parameters[i].InternalName == "effect" {
@@ -526,7 +533,7 @@ func getParametersOfPolicyForExport(policy Policy) []PolicyParameter {
 		if effectParam.DefaultValue == nil {
 			effectParam.DefaultValue = policy.Effect
 		}
-	} else {
+	} else if addEffectParam {
 		parameters = append(parameters, PolicyParameter{
 			InternalName: "*effect",
 			Type:         "string",
