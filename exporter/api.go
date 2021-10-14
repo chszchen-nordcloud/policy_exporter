@@ -156,10 +156,10 @@ func collectPolicySetParameters(paramByName map[string]PolicyParameter) []Policy
 func getPolicyDefinitionExporters(config Config) []PolicyDefinitionExporter {
 	jsonExporter := PolicyDefinitionExporter{
 		PolicyExporter: func(policies []Policy, targetDir string) error {
-			return ExportPoliciesAsJSON(policies, config.LocalLandingZoneRepoDir, targetDir)
+			return ExportPoliciesAsJSON(policies, targetDir)
 		},
 		PolicySetParameterExporter: func(params []PolicyParameter, targetDir string) error {
-			return ExportPolicySetParametersAsJSON(params, config.ManagementGroupToExportForASCParameters, targetDir)
+			return ExportPolicySetParametersAsJSON(params, config.ASCParametersFileMappings, targetDir)
 		},
 	}
 	mdxExport := PolicyDefinitionExporter{
@@ -263,13 +263,13 @@ func getPolicyDefinitionProvidersForIntermediateExport(config Config) ([]*Policy
 		result = append(result, oldExcelProvider)
 	}
 
-	if config.YAMLFilePath != "" {
-		yamlProvider, err := getYAMLFileProvider(config)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, yamlProvider)
-	}
+	//if config.YAMLFilePath != "" {
+	//	yamlProvider, err := getYAMLFileProvider(config)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	result = append(result, yamlProvider)
+	//}
 
 	return result, nil
 }

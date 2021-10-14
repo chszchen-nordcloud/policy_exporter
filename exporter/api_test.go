@@ -141,7 +141,6 @@ func getConfigForAPITest(t *testing.T) *Config {
 	configFilePath := filepath.Join(resourceDir, "example_config.yaml")
 	config, err := buildConfig(&configFilePath, []string{resourceDir})
 	assert.NoError(t, err)
-	config.ExcelFilePath = getTargetFileName(resourceDir)
 
 	err = config.Validate()
 	assert.NoError(t, err)

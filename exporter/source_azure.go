@@ -87,7 +87,7 @@ func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, mana
 		return strings.HasPrefix(displayName, "[Deprecated]") || strings.HasPrefix(displayName, "[Preview]")
 	}
 
-	policiesInInitiatives := make(map[string]bool)
+	policyToInitiatives := make(map[string]*[]string)
 	var result []Policy
 	for list := policy.NewSetDefinitionListResultIterator(policySetPage); list.NotDone(); err = list.NextWithContext(ctx) {
 		if err != nil {
@@ -101,7 +101,12 @@ func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, mana
 		}
 
 		for _, child := range *policySetDef.PolicyDefinitions {
-			policiesInInitiatives[*child.PolicyDefinitionID] = true
+			initiatives, ok := policyToInitiatives[*child.PolicyDefinitionID]
+			if !ok {
+				initiatives = new([]string)
+				policyToInitiatives[*child.PolicyDefinitionID] = initiatives
+			}
+			*initiatives = append(*initiatives, *policySetDef.ID)
 		}
 
 		p, err := policySetDefToPolicy(policySetDef)
@@ -117,10 +122,6 @@ func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, mana
 		}
 		policyDef := list.Value()
 
-		if _, ok := policiesInInitiatives[*policyDef.ID]; ok {
-			continue
-		}
-
 		displayName := *policyDef.DisplayName
 		if isPreviewOrDeprecated(displayName) {
 			continue
@@ -130,6 +131,11 @@ func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, mana
 		if err != nil {
 			return nil, err
 		}
+
+		if initiativeIDs, ok := policyToInitiatives[*policyDef.ID]; ok {
+			p.InitiativeIDs = *initiativeIDs
+		}
+
 		result = append(result, *p)
 	}
 	return result, nil

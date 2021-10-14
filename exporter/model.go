@@ -50,10 +50,11 @@ type Policy struct {
 	DisplayName      string                `json:"name" yaml:"DisplayName"`
 	Effect           string                `json:"-" yaml:"-"`
 	IsInitiative     bool                  `json:"-" yaml:"-"`
-	ResourceID       string                `json:"-" yaml:"ResourceID"`
+	InitiativeIDs    []string              `json:"-" yaml:"-"`
+	ResourceID       string                `json:"definitionId,omitempty" yaml:"ResourceID"`
 	Justification    string                `json:"-" yaml:"Justification"`
 	CostImpact       string                `json:"-" yaml:"CostImpact"`
-	Description      string                `json:"-" yaml:"Description"`
+	Description      string                `json:"info,omitempty" yaml:"Description"`
 	Parameters       []PolicyParameter     `json:"-" yaml:"-"`
 	ManagementGroups map[string]Attachment `json:"managementGroups" yaml:"ManagementGroups"`
 }
@@ -63,7 +64,7 @@ type Attachment struct {
 	Enabled    bool                   `json:"enabled" yaml:"Enabled"`
 	Parameters map[string]interface{} `json:"parameters" yaml:"Parameters"`
 	Location   string                 `json:"location" yaml:"Location"`
-	Effect     string                 `json:"effect" yaml:"Effect"`
+	Effect     string                 `json:"-" yaml:"Effect"`
 }
 
 type PolicyParameter struct {

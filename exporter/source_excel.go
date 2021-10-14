@@ -230,7 +230,7 @@ func rowToPolicyParameter(values []string, columns *columns) (*PolicyParameter, 
 	parameterType := parseSingleParameterRawValue(typesStr)
 
 	managementGroupToValueStr := columns.GetDynamicColumnValues(values)
-	managementGroupToValue := make(map[string]interface{}, len(managementGroupToValueStr))
+	managementGroupToValue := make(map[string]interface{})
 	for mgmtGroupName, valueStr := range managementGroupToValueStr {
 		valueStr := strings.TrimSpace(valueStr)
 		if valueStr == "" || valueStr == CellValueNotApplied {

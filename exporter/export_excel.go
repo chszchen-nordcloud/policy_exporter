@@ -13,17 +13,18 @@ import (
 
 // Prefer string index over hardcoded magic integers.
 const (
-	ColumnDisplayName    = "DisplayName"
-	ColumnPossibleValues = "Parameters: Possible values"
-	ColumnDefaultValues  = "Default values"
-	ColumnDescription    = "Description"
-	ColumnCategory       = "Category"
-	ColumnPolicyType     = "Policy Type"
-	ColumnResourceID     = "ResourceID"
-	ColumnJustification  = "Justification"
-	ColumnCostImpact     = "Cost Impact"
-	ColumnReferenceID    = "Reference ID"
-	ColumnParameterTypes = "Parameter Types"
+	ColumnDisplayName          = "DisplayName"
+	ColumnPossibleValues       = "Parameters: Possible values"
+	ColumnDefaultValues        = "Default values"
+	ColumnDescription          = "Description"
+	ColumnCategory             = "Category"
+	ColumnPolicyType           = "Policy Type"
+	ColumnResourceID           = "ResourceID"
+	ColumnJustification        = "Justification"
+	ColumnCostImpact           = "Cost Impact"
+	ColumnReferenceID          = "Reference ID"
+	ColumnBelongingInitiatives = "Belonging Initiatives"
+	ColumnParameterTypes       = "Parameter Types"
 )
 
 var (
@@ -33,7 +34,7 @@ var (
 		Columns: []string{
 			ColumnDisplayName, ColumnPossibleValues, ColumnDefaultValues, ColumnDescription, ColumnCategory,
 			ColumnPolicyType, ColumnResourceID, ColumnJustification, ColumnCostImpact,
-			ColumnParameterTypes,
+			ColumnBelongingInitiatives, ColumnParameterTypes,
 		},
 		DynamicColumnIndex: ColumnDefaultValues,
 		GetRows: func(obj interface{}) []partialRow {
@@ -427,34 +428,41 @@ func policyParameterToRowValues(parameter PolicyParameter) partialRow {
 // converts a builtin policy to row values.
 func builtInPolicyToRowValues(policy Policy) partialRow {
 	return map[string]cell{
-		ColumnDisplayName:    newCell(policy.DisplayName),
-		ColumnPossibleValues: formatParameters(getParametersOfPolicyForExport(policy, false), formatParameterPossibleValues),
-		ColumnDefaultValues:  formatParameters(getParametersOfPolicyForExport(policy, true), formatParameterDefaultValues),
-		ColumnDescription:    newCell(policy.Description),
-		ColumnCategory:       newCell(policy.Category),
-		ColumnPolicyType:     newCell("Builtin"),
-		ColumnResourceID:     newCell(policy.ResourceID),
-		ColumnJustification:  newCell(policy.Justification),
-		ColumnCostImpact:     newCell(policy.CostImpact),
-		ColumnParameterTypes: formatParameters(policy.Parameters, formatParameterTypes),
+		ColumnDisplayName:          newCell(policy.DisplayName),
+		ColumnPossibleValues:       formatParameters(getParametersOfPolicyForExport(policy, false), formatParameterPossibleValues),
+		ColumnDefaultValues:        formatParameters(getParametersOfPolicyForExport(policy, true), formatParameterDefaultValues),
+		ColumnDescription:          newCell(policy.Description),
+		ColumnCategory:             newCell(policy.Category),
+		ColumnPolicyType:           newCell("Builtin"),
+		ColumnResourceID:           newCell(policy.ResourceID),
+		ColumnJustification:        newCell(policy.Justification),
+		ColumnCostImpact:           newCell(policy.CostImpact),
+		ColumnBelongingInitiatives: formatValues(policy.InitiativeIDs),
+		ColumnParameterTypes:       formatParameters(policy.Parameters, formatParameterTypes),
+	}
+}
+
+func formatValues(values []string) cell {
+	maxLen := 0
+	for _, value := range values {
+		if l := len(value); maxLen < l {
+			maxLen = l
+		}
+	}
+	return cell{
+		value: strings.Join(values, "\n"),
+		width: maxLen,
 	}
 }
 
 // build cell value for parameters.
 func formatParameters(parameters []PolicyParameter, toString func(PolicyParameter) string) cell {
 	values := make([]string, 0, len(parameters))
-	maxLen := 0
 	for _, param := range parameters {
 		value := toString(param)
-		if l := len(value); maxLen < l {
-			maxLen = l
-		}
 		values = append(values, value)
 	}
-	return cell{
-		value: strings.Join(values, "\n"),
-		width: maxLen,
-	}
+	return formatValues(values)
 }
 
 // build cell value of types of parameters.

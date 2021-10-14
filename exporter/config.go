@@ -32,8 +32,8 @@ type Config struct {
 	// Required, management groups that appear as columns in exported files
 	ManagementGroups []string `yaml:"ManagementGroups"`
 
-	// Required, ASC parameters are exported under a single management group.
-	ManagementGroupToExportForASCParameters string `yaml:"ManagementGroupToExportForASCParameters"`
+	// Required, mappings from management group names to the exported file names for ASC policy parameters
+	ASCParametersFileMappings map[string]string `yaml:"ASCParametersFileMappings"`
 
 	// Default to current dir, directory for exported files
 	TargetDir string `yaml:"TargetDir"`

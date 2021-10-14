@@ -2,15 +2,17 @@ package exporter
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/fatih/color"
 	"os"
 	"path/filepath"
 )
 
-func ExportPoliciesAsJSON(policies []Policy, landingZoneRepoPath string, targetDir string) error {
+func ExportPoliciesAsJSON(policies []Policy, targetDir string) error {
 	categoryByName := make(map[string]*Category)
 	for _, policy := range policies {
+		if len(policy.ManagementGroups) == 0 {
+			continue
+		}
 		categoryName := policy.Category
 		if categoryName == "" {
 			categoryName = "Unknown"
@@ -31,13 +33,24 @@ func ExportPoliciesAsJSON(policies []Policy, landingZoneRepoPath string, targetD
 	}
 	PrintCategorySummary(categoryByName)
 
-	m := map[string]interface{}{"category": categories}
+	var m JSONObject
+	policyParameterFile := filepath.Join(targetDir, "governance-policy-parameters.json")
+	if _, err := os.Stat(policyParameterFile); err == nil {
+		tmpl, err := NewJSONObjectFromFile(policyParameterFile)
+		if err != nil {
+			return err
+		}
+		tmpl["category"] = categories
+		m = tmpl
+	} else {
+		m = map[string]interface{}{"category": categories}
+	}
+
 	b, err := json.MarshalIndent(m, "", "\t")
 	if err != nil {
 		return err
 	}
 
-	policyParameterFile := filepath.Join(targetDir, "governance-policy-parameters.json")
 	color.Green("Write to '%s'", policyParameterFile)
 	return os.WriteFile(policyParameterFile, b, 0600)
 }
@@ -51,9 +64,22 @@ func PrintCategorySummary(categoryByName map[string]*Category) {
 	c.Printf("\n")
 }
 
-func ExportPolicySetParametersAsJSON(parameters []PolicyParameter, managementGroup string, targetDir string) error {
+func ExportPolicySetParametersAsJSON(parameters []PolicyParameter, filenameMappings map[string]string, targetDir string) error {
+	for managementGroup, filename := range filenameMappings {
+		err := doExportPolicySetParametersAsJSON(parameters, managementGroup, filepath.Join(targetDir, filename))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func doExportPolicySetParametersAsJSON(parameters []PolicyParameter, managementGroup string, targetFile string) error {
 	parametersToExport := make(map[string]PolicyParameterValue)
 	for _, param := range parameters {
+		if len(param.ManagementGroups) == 0 {
+			continue
+		}
 		effect, ok := param.ManagementGroups[managementGroup]
 		if !ok {
 			effect = "Disabled"
@@ -63,13 +89,23 @@ func ExportPolicySetParametersAsJSON(parameters []PolicyParameter, managementGro
 		}
 	}
 
-	m := map[string]interface{}{"parameters": parametersToExport}
+	var m JSONObject
+	if _, err := os.Stat(targetFile); err == nil {
+		tmpl, err := NewJSONObjectFromFile(targetFile)
+		if err != nil {
+			return err
+		}
+		tmpl["parameters"] = parametersToExport
+		m = tmpl
+	} else {
+		m = map[string]interface{}{"parameters": parametersToExport}
+	}
+
 	b, err := json.MarshalIndent(m, "", "\t")
 	if err != nil {
 		return err
 	}
 
-	parameterFile := filepath.Join(targetDir, fmt.Sprintf("ASC_policy_%s.json", managementGroup))
-	color.Green("Write to '%s'", parameterFile)
-	return os.WriteFile(parameterFile, b, 0600)
+	color.Green("Write to '%s'", targetFile)
+	return os.WriteFile(targetFile, b, 0600)
 }

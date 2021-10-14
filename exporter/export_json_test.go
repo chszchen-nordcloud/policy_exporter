@@ -2,7 +2,6 @@ package exporter
 
 import (
 	"github.com/stretchr/testify/assert"
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -21,8 +20,7 @@ func TestExportPoliciesAsJson(t *testing.T) {
 	var policies []Policy
 	policies = append(policies, definition.BuiltInPolicies...)
 	policies = append(policies, definition.CustomPolicies...)
-	localLandingZoneRepoDir := os.Getenv("LOCAL_LZ_REPO_DIR")
-	err = ExportPoliciesAsJSON(policies, localLandingZoneRepoDir, base)
+	err = ExportPoliciesAsJSON(policies, base)
 	assert.NoError(t, err)
 }
 
@@ -32,11 +30,17 @@ func TestExportPolicySetParametersAsJSON(t *testing.T) {
 	}
 	base := TestResourceDir()
 	definition, err := ReadPolicyDefinitionFromExcel(
-		filepath.Join(base, "Azure Cloud Foundation - Baseline Policies - 20210929.xlsx"),
-		[]string{"Management", "Production", "Non-Prod", "Sandbox"},
+		filepath.Join(base, "Azure Cloud Foundation - Baseline Policies - 20211014.xlsx"),
+		[]string{"ACF's subscriptions", "PLATFORM's subscriptions", "LANDING ZONE's subscriptions", "SANDBOX's subscriptions"},
 	)
 	assert.NoError(t, err)
 
-	err = ExportPolicySetParametersAsJSON(definition.ASCPolicySetParameters, "Prod", base)
+	filenameMappings := map[string]string{
+		"ACF's subscriptions":          "ASC_policy_ACF.json",
+		"PLATFORM's subscriptions":     "ASC_policy_PLATFORM.json",
+		"LANDING ZONE's subscriptions": "ASC_policy_LANDINGZONE.json",
+		"SANDBOX's subscriptions":      "ASC_policy_SANDBOX.json",
+	}
+	err = ExportPolicySetParametersAsJSON(definition.ASCPolicySetParameters, filenameMappings, base)
 	assert.NoError(t, err)
 }

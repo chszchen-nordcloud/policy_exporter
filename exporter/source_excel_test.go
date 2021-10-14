@@ -45,7 +45,12 @@ func TestReadPolicyDefinitionFromExcel(t *testing.T) {
 	base := TestResourceDir()
 	result, err := ReadPolicyDefinitionFromExcel(
 		filepath.Join(base, "Azure Cloud Foundation - Baseline Policies - WithUserInputs.xlsx"),
-		[]string{"Management", "Production", "Non-Prod", "Sandbox"},
+		[]string{
+			"ACF's subscriptions",
+			"PLATFORM's subscriptions",
+			"LANDING ZONE's subscriptions",
+			"SANDBOX's subscriptions",
+		},
 	)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result.BuiltInPolicies)

@@ -3,9 +3,23 @@ package exporter
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 )
 
 type JSONObject map[string]interface{}
+
+func NewJSONObjectFromFile(file string) (JSONObject, error) {
+	result := make(JSONObject)
+	b, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(b, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
 
 func (o *JSONObject) GetArray(keys ...string) ([]interface{}, error) {
 	v, err := mapLookup(map[string]interface{}(*o), keys...)

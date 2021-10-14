@@ -6,8 +6,12 @@ ExcelFilePath: test_resources/Azure Cloud Foundation - Baseline Policies - WithU
 YAMLFilePath: test_resources/example_policies.yaml
 LocalLandingZoneRepoDir: /Users/chszchen/Home/Temp/azure/ACF3.Modular
 ManagementGroups:
-  - Management
-  - Production
-  - Non-Prod
-  - Sandbox
-ManagementGroupToExportForASCParameters: Production
+  - ACF's subscriptions
+  - PLATFORM's subscriptions
+  - LANDING ZONE's subscriptions
+  - SANDBOX's subscriptions
+ASCParametersFileMappings:
+  ACF's subscriptions: ASC_policy_ACF.json
+  PLATFORM's subscriptions: ASC_policy_PLATFORM.json
+  LANDING ZONE's subscriptions: ASC_policy_LANDINGZONE.json
+  SANDBOX's subscriptions: ASC_policy_SANDBOX.json
