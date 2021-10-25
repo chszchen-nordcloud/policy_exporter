@@ -29,11 +29,11 @@ type Config struct {
 	// Required, only builtin policies found in this file will be included in JSON parameter files
 	YAMLFilePath string `yaml:"YAMLFilePath"`
 
-	// Required, management groups that appear as columns in exported files
+	// Required, management groups that appear as columns for policy tabs
 	ManagementGroups []string `yaml:"ManagementGroups"`
 
-	// Required, mappings from management group names to the exported file names for ASC policy parameters
-	ASCParametersFileMappings map[string]string `yaml:"ASCParametersFileMappings"`
+	// Required, subscriptions that appear as columns for ASC policy parameters
+	Subscriptions []string `yaml:"Subscriptions"`
 
 	// Default to current dir, directory for exported files
 	TargetDir string `yaml:"TargetDir"`

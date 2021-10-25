@@ -25,6 +25,7 @@ const (
 	ColumnReferenceID          = "Reference ID"
 	ColumnBelongingInitiatives = "Belonging Initiatives"
 	ColumnParameterTypes       = "Parameter Types"
+	ColumnRecommendation       = "Baseline Recommendation"
 )
 
 var (
@@ -34,7 +35,7 @@ var (
 		Columns: []string{
 			ColumnDisplayName, ColumnPossibleValues, ColumnDefaultValues, ColumnDescription, ColumnCategory,
 			ColumnPolicyType, ColumnResourceID, ColumnJustification, ColumnCostImpact,
-			ColumnBelongingInitiatives, ColumnParameterTypes,
+			ColumnBelongingInitiatives, ColumnParameterTypes, ColumnRecommendation,
 		},
 		DynamicColumnIndex: ColumnDefaultValues,
 		GetRows: func(obj interface{}) []partialRow {
@@ -54,7 +55,7 @@ var (
 		Order: 1,
 		Columns: []string{
 			ColumnDisplayName, ColumnPossibleValues, ColumnDefaultValues, ColumnDescription, ColumnCategory,
-			ColumnPolicyType, ColumnJustification, ColumnCostImpact,
+			ColumnPolicyType, ColumnJustification, ColumnCostImpact, ColumnRecommendation,
 			ColumnParameterTypes,
 		},
 		DynamicColumnIndex: ColumnDefaultValues,
@@ -418,6 +419,10 @@ func policyParameterToRowValues(parameter PolicyParameter) partialRow {
 
 // converts a builtin policy to row values.
 func builtInPolicyToRowValues(policy Policy) partialRow {
+	recommendValue := "No"
+	if policy.Recommend {
+		recommendValue = "Yes"
+	}
 	return map[string]cell{
 		ColumnDisplayName:          newCell(policy.DisplayName),
 		ColumnPossibleValues:       formatParameters(policy.GetParametersForExport(), formatParameterPossibleValues),
@@ -430,6 +435,7 @@ func builtInPolicyToRowValues(policy Policy) partialRow {
 		ColumnCostImpact:           newCell(policy.CostImpact),
 		ColumnBelongingInitiatives: formatValues(policy.InitiativeIDs),
 		ColumnParameterTypes:       formatParameters(policy.Parameters, formatParameterTypes),
+		ColumnRecommendation:       newCell(fmt.Sprintf("%-8s", recommendValue)),
 	}
 }
 

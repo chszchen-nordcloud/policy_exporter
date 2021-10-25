@@ -64,9 +64,9 @@ func PrintCategorySummary(categoryByName map[string]*Category) {
 	c.Printf("\n")
 }
 
-func ExportPolicySetParametersAsJSON(parameters []PolicyParameter, filenameMappings map[string]string, targetDir string) error {
-	for managementGroup, filename := range filenameMappings {
-		err := doExportPolicySetParametersAsJSON(parameters, managementGroup, filepath.Join(targetDir, filename))
+func ExportPolicySetParametersAsJSON(parameters []PolicyParameter, subscriptions []string, targetDir string) error {
+	for _, subscription := range subscriptions {
+		err := doExportPolicySetParametersAsJSON(parameters, subscription, filepath.Join(targetDir, subscription))
 		if err != nil {
 			return err
 		}

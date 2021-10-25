@@ -5,7 +5,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/xuri/excelize/v2"
 	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -19,7 +18,7 @@ func TestExportIntermediateFiles(t *testing.T) {
 	assert.NoError(t, err)
 
 	ctx := context.Background()
-	config := getConfigForAPITest(t)
+	config := getConfigForTest(t)
 	config.ExcelFilePath = getTargetFileName(config.TargetDir)
 
 	// A flag to skip the exporting part.
@@ -28,7 +27,7 @@ func TestExportIntermediateFiles(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	excelProvider, err := getIntermediateExcelFileProvider(*config)
+	excelProvider, err := getIntermediateExcelFileProvider(config.ExcelFilePath, *config)
 	assert.NoError(t, err)
 
 	azureAPIProvider, err := getAzureAPIProvider(*config)
@@ -231,7 +230,7 @@ func verifyPolicyParameterRowsFromReader(
 ) {
 	f, err := excelize.OpenFile(getTargetFileName(config.TargetDir))
 	assert.NoError(t, err)
-	rows, err := sheetReader.readRows(f, config.ManagementGroups)
+	rows, err := sheetReader.readRows(f, config.Subscriptions)
 	assert.NoError(t, err)
 
 	paramsFromBase, err := baseReader(ctx)
@@ -317,25 +316,13 @@ func TestExportFinal(t *testing.T) {
 	assert.NoError(t, err)
 
 	ctx := context.Background()
-	config := getConfigForAPITest(t)
+	config := getConfigForTest(t)
 
 	// A flag to skip the exporting part.
 	if !skipExportDuringTest() {
 		err := ExportFinal(ctx, *config)
 		assert.NoError(t, err)
 	}
-}
-
-func getConfigForAPITest(t *testing.T) *Config {
-	resourceDir := "test_resources"
-	configFilePath := filepath.Join(resourceDir, "example_config.yaml")
-	config, err := buildConfig(&configFilePath, []string{resourceDir})
-	assert.NoError(t, err)
-
-	err = config.Validate()
-	assert.NoError(t, err)
-
-	return config
 }
 
 func skipExportDuringTest() bool {

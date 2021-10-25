@@ -11,9 +11,11 @@ func TestExportPoliciesAsJson(t *testing.T) {
 		return
 	}
 	base := TestResourceDir()
+	config := getConfigForTest(t)
 	definition, err := ReadPolicyDefinitionFromExcel(
 		filepath.Join(base, "Azure Cloud Foundation - Baseline Policies - 20210929.xlsx"),
-		[]string{"Management", "Production", "Non-Prod", "Sandbox"},
+		config.ManagementGroups,
+		config.Subscriptions,
 	)
 	assert.NoError(t, err)
 
@@ -29,18 +31,14 @@ func TestExportPolicySetParametersAsJSON(t *testing.T) {
 		return
 	}
 	base := TestResourceDir()
+	config := getConfigForTest(t)
 	definition, err := ReadPolicyDefinitionFromExcel(
 		filepath.Join(base, "Azure Cloud Foundation - Baseline Policies - 20211014.xlsx"),
-		[]string{"ACF's subscriptions", "PLATFORM's subscriptions", "LANDING ZONE's subscriptions", "SANDBOX's subscriptions"},
+		config.ManagementGroups,
+		config.Subscriptions,
 	)
 	assert.NoError(t, err)
 
-	filenameMappings := map[string]string{
-		"ACF's subscriptions":          "ASC_policy_ACF.json",
-		"PLATFORM's subscriptions":     "ASC_policy_PLATFORM.json",
-		"LANDING ZONE's subscriptions": "ASC_policy_LANDINGZONE.json",
-		"SANDBOX's subscriptions":      "ASC_policy_SANDBOX.json",
-	}
-	err = ExportPolicySetParametersAsJSON(definition.ASCPolicySetParameters, filenameMappings, base)
+	err = ExportPolicySetParametersAsJSON(definition.ASCPolicySetParameters, config.Subscriptions, base)
 	assert.NoError(t, err)
 }

@@ -3,8 +3,11 @@ package exporter
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"os"
+	"path/filepath"
 	"strings"
+	"testing"
 )
 
 func SkipTest() bool {
@@ -23,4 +26,16 @@ func PrettyPrint(v interface{}) error {
 
 func TestResourceDir() string {
 	return "../test_resources"
+}
+
+func getConfigForTest(t *testing.T) *Config {
+	resourceDir := "test_resources"
+	configFilePath := filepath.Join(resourceDir, "example_config.yaml")
+	config, err := buildConfig(&configFilePath, []string{resourceDir})
+	assert.NoError(t, err)
+
+	err = config.Validate()
+	assert.NoError(t, err)
+
+	return config
 }

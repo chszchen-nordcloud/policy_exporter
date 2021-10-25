@@ -49,6 +49,7 @@ type Policy struct {
 	Category         string                `json:"-" yaml:"Category"`
 	DisplayName      string                `json:"name" yaml:"DisplayName"`
 	Effect           string                `json:"-" yaml:"-"`
+	Recommend        bool                  `json:"-"`
 	IsInitiative     bool                  `json:"-" yaml:"-"`
 	InitiativeIDs    []string              `json:"-" yaml:"-"`
 	ResourceID       string                `json:"definitionId,omitempty" yaml:"ResourceID"`
@@ -120,6 +121,7 @@ func (p *Policy) Merge(otherResource UniqueResource) {
 	if p.ManagementGroups == nil {
 		p.ManagementGroups = make(map[string]Attachment)
 	}
+	p.Recommend = p.Recommend && other.Recommend
 	managementGroups := &p.ManagementGroups
 	for k, v := range other.ManagementGroups {
 		if existing, ok := (*managementGroups)[k]; ok {

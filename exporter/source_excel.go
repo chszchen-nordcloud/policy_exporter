@@ -44,72 +44,13 @@ var (
 		SheetDefinition:      &SheetASCParameters,
 		RowToPolicyParameter: rowToPolicyParameter,
 	}
-
-	// Didn't bother to replace magic numbers as the file to parse is obsolete.
-	obsoleteBuiltinPoliciesSheetReader = policySheetReader{
-		SheetName: SheetNameBuiltinPolicies,
-		RowToPolicy: func(values namedCells) (*Policy, error) {
-			row := values.values
-			var justification string
-			if len(row) >= 9 {
-				justification = row[8]
-			}
-			policy := Policy{
-				DisplayName:   row[1],
-				Category:      row[7],
-				Justification: justification,
-			}
-			return &policy, nil
-		},
-	}
-
-	// Didn't bother to replace magic numbers as the file to parse is obsolete.
-	obsoleteASCPolicyParametersSheetReader = policyParameterSheetReader{
-		SheetName: SheetNameAscParameters,
-		RowToPolicyParameter: func(values namedCells) (*PolicyParameter, error) {
-			row := values.values
-			var justification, costImpact string
-			if len(row) >= 8 {
-				justification = row[7]
-			}
-			if len(row) >= 9 {
-				costImpact = row[8]
-			}
-			return &PolicyParameter{
-				InternalName:  row[0],
-				Justification: justification,
-				CostImpact:    costImpact,
-			}, nil
-		},
-	}
 )
-
-func ReadPolicyDefinitionFromObsoleteExcel(sourceFilePath string, managementGroups []string) (*ExcelPolicyDefinition, error) {
-	result, err := readPolicyDefinitionFromExcel(sourceFilePath, managementGroups, ExcelPolicyDefinitionReader{
-		BuiltInPoliciesReader:     &obsoleteBuiltinPoliciesSheetReader,
-		ASCPolicyParametersReader: &obsoleteASCPolicyParametersSheetReader,
-	})
-	if err != nil {
-		return nil, err
-	}
-	parameters := make([]UniqueResource, len(result.ASCPolicySetParameters))
-	for i := range result.ASCPolicySetParameters {
-		parameters[i] = &result.ASCPolicySetParameters[i]
-	}
-	uniqueResources := Unique(parameters)
-	uniqueParameters := make([]PolicyParameter, len(uniqueResources))
-	for i := range uniqueResources {
-		uniqueParameters[i] = *(uniqueResources[i].(*PolicyParameter))
-	}
-	result.ASCPolicySetParameters = uniqueParameters
-	return result, nil
-}
 
 // ReadPolicyDefinitionFromExcel is mainly used to read data that has to be provided manually. Because there is no need
 // to parse the information that is automatically generated. Currently, management group columns and justification,
 // cost impact are read from the file.
-func ReadPolicyDefinitionFromExcel(sourceFilePath string, managementGroups []string) (*ExcelPolicyDefinition, error) {
-	return readPolicyDefinitionFromExcel(sourceFilePath, managementGroups, ExcelPolicyDefinitionReader{
+func ReadPolicyDefinitionFromExcel(sourceFilePath string, managementGroups []string, subscriptions []string) (*ExcelPolicyDefinition, error) {
+	return readPolicyDefinitionFromExcel(sourceFilePath, managementGroups, subscriptions, ExcelPolicyDefinitionReader{
 		BuiltInPoliciesReader:     &builtinPoliciesSheetReader,
 		CustomPoliciesReader:      &customPoliciesSheetReader,
 		ASCPolicyParametersReader: &ascPolicyParametersSheetReader,
@@ -117,7 +58,7 @@ func ReadPolicyDefinitionFromExcel(sourceFilePath string, managementGroups []str
 }
 
 func readPolicyDefinitionFromExcel(
-	sourceFilePath string, managementGroups []string, excelReader ExcelPolicyDefinitionReader,
+	sourceFilePath string, managementGroups []string, subscriptions []string, excelReader ExcelPolicyDefinitionReader,
 ) (*ExcelPolicyDefinition, error) {
 	f, err := excelize.OpenFile(sourceFilePath)
 	if err != nil {
@@ -143,7 +84,7 @@ func readPolicyDefinitionFromExcel(
 	}
 
 	if excelReader.ASCPolicyParametersReader != nil {
-		parameters, err := readPolicyParametersFromSheet(f, managementGroups, excelReader.ASCPolicyParametersReader)
+		parameters, err := readPolicyParametersFromSheet(f, subscriptions, excelReader.ASCPolicyParametersReader)
 		if err != nil {
 			return nil, err
 		}
@@ -323,6 +264,13 @@ func rowToPolicy(values namedCells) (*Policy, error) {
 
 	justification, _ := values.Get(ColumnJustification)
 	costImpact, _ := values.Get(ColumnCostImpact)
+	recommend := false
+	if recommendStr, ok := values.Get(ColumnRecommendation); ok {
+		recommendStr = strings.TrimSpace(recommendStr)
+		if strings.EqualFold(recommendStr, "yes") {
+			recommend = true
+		}
+	}
 
 	policy := Policy{
 		Category:         category,
@@ -330,6 +278,7 @@ func rowToPolicy(values namedCells) (*Policy, error) {
 		Justification:    justification,
 		CostImpact:       costImpact,
 		ManagementGroups: attachments,
+		Recommend:        recommend,
 	}
 	return &policy, nil
 }

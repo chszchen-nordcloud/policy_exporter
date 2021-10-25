@@ -1,18 +1,20 @@
 SubscriptionID: 5959d188-3a85-4a68-98e0-af236b3c2cac
 PolicyQueryASCPolicySetName:
 PolicyQueryManagementGroupName:
-OldBaselineExcelFilePath: test_resources/Azure Cloud Foundation - Baseline Policies.xlsx
+OldBaselineExcelFilePath: test_resources/Azure Cloud Foundation - Baseline Policies - October 2021.xlsx
 ExcelFilePath: test_resources/Azure Cloud Foundation - Baseline Policies - WithUserInputs.xlsx
 LocalLandingZoneRepoDir: /Users/chszchen/Home/Temp/azure/ACF3.Modular
 ManagementGroups:
-  - aa subscriptions
-  - bb's subscriptions
-  - LANDING ZONE's subscriptions
-  - another' subscription
-  - SANDBOX's subscriptions
-ASCParametersFileMappings:
-  aa subscriptions: ASC_policy_aa.json
-  bb's subscriptionss: ASC_policy_bb.json
-  LANDING ZONE's subscriptions: ASC_policy_LANDINGZONE.json
-  another' subscription: ASC_policy_another.json
-  SANDBOX's subscriptions: ASC_policy_SANDBOX.json
+  - mg-acfdev
+  - mg-platform
+  - mg-landing-zone
+  - mg-sandbox
+Subscriptions:
+  - Common for ACF's subscriptions
+  - Specific requirement 1
+  - Specific requirement 2
+  - Specific requirement 3
+
+# Use new baseline
+# add column to the end
+# Support flexible values

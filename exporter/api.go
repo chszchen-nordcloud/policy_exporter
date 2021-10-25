@@ -159,7 +159,7 @@ func getPolicyDefinitionExporters(config Config) []PolicyDefinitionExporter {
 			return ExportPoliciesAsJSON(policies, targetDir)
 		},
 		PolicySetParameterExporter: func(params []PolicyParameter, targetDir string) error {
-			return ExportPolicySetParametersAsJSON(params, config.ASCParametersFileMappings, targetDir)
+			return ExportPolicySetParametersAsJSON(params, config.Subscriptions, targetDir)
 		},
 	}
 	mdxExport := PolicyDefinitionExporter{
@@ -167,7 +167,7 @@ func getPolicyDefinitionExporters(config Config) []PolicyDefinitionExporter {
 			return ExportBuiltInPolicyDoc(config.ManagementGroups, policies, targetDir)
 		},
 		PolicySetParameterExporter: func(params []PolicyParameter, targetDir string) error {
-			return ExportASCPolicyDoc(config.ManagementGroups, params, targetDir)
+			return ExportASCPolicyDoc(config.Subscriptions, params, targetDir)
 		},
 	}
 	return []PolicyDefinitionExporter{
@@ -193,7 +193,7 @@ func getIntermediateExporters(config Config) []PolicyDefinitionExporter {
 			return SaveExcelFile(f, targetDir)
 		},
 		PolicySetParameterExporter: func(parameters []PolicyParameter, targetDir string) error {
-			err := ExportDataToExcelSheet(f, SheetASCParameters, parameters, config.ManagementGroups)
+			err := ExportDataToExcelSheet(f, SheetASCParameters, parameters, config.Subscriptions)
 			if err != nil {
 				return err
 			}
@@ -209,7 +209,7 @@ func getPolicyDefinitionProvidersForFinalExport(config Config) ([]*PolicyDefinit
 		return nil, err
 	}
 
-	intermediateExcelFileProvider, err := getIntermediateExcelFileProvider(config)
+	intermediateExcelFileProvider, err := getIntermediateExcelFileProvider(config.ExcelFilePath, config)
 	if err != nil {
 		return nil, err
 	}
@@ -220,8 +220,8 @@ func getPolicyDefinitionProvidersForFinalExport(config Config) ([]*PolicyDefinit
 	return result, nil
 }
 
-func getIntermediateExcelFileProvider(config Config) (*PolicyDefinitionProvider, error) {
-	excelPolicyDef, err := ReadPolicyDefinitionFromExcel(config.ExcelFilePath, config.ManagementGroups)
+func getIntermediateExcelFileProvider(path string, config Config) (*PolicyDefinitionProvider, error) {
+	excelPolicyDef, err := ReadPolicyDefinitionFromExcel(path, config.ManagementGroups, config.Subscriptions)
 	if err != nil {
 		return nil, err
 	}
@@ -304,19 +304,7 @@ func getLocalLandingZoneRepositoryProvider(config Config) (*PolicyDefinitionProv
 }
 
 func getOldBaselineExcelFileProvider(config Config) (*PolicyDefinitionProvider, error) {
-	excelPolicyDef, err := ReadPolicyDefinitionFromObsoleteExcel(config.OldBaselineExcelFilePath, config.ManagementGroups)
-	if err != nil {
-		return nil, err
-	}
-	excelProvider := &PolicyDefinitionProvider{
-		BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
-			return excelPolicyDef.BuiltInPolicies, nil
-		},
-		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
-			return excelPolicyDef.ASCPolicySetParameters, nil
-		},
-	}
-	return excelProvider, nil
+	return getIntermediateExcelFileProvider(config.OldBaselineExcelFilePath, config)
 }
 
 func getYAMLFileProvider(config Config) (*PolicyDefinitionProvider, error) {
