@@ -61,10 +61,11 @@ type Policy struct {
 
 // Attachment attaches a policy to a management group.
 type Attachment struct {
-	Enabled    bool                   `json:"enabled" yaml:"Enabled"`
-	Parameters map[string]interface{} `json:"parameters" yaml:"Parameters"`
-	Location   string                 `json:"location" yaml:"Location"`
-	Effect     string                 `json:"-" yaml:"Effect"`
+	Enabled      bool                   `json:"enabled" yaml:"Enabled"`
+	Parameters   map[string]interface{} `json:"parameters,omitempty" yaml:"Parameters"`
+	Location     string                 `json:"location" yaml:"Location"`
+	Effect       string                 `json:"-" yaml:"Effect"`
+	LinkedScopes []string               `json:"linkedScopes"`
 }
 
 type PolicyParameter struct {
@@ -130,6 +131,45 @@ func (p *Policy) Merge(otherResource UniqueResource) {
 	}
 }
 
+func (p *Policy) GetParametersForExport() []PolicyParameter {
+	result := make([]PolicyParameter, 0, len(p.Parameters))
+	for _, param := range p.Parameters {
+		if !strings.HasPrefix(param.InternalName, "*") {
+			result = append(result, param)
+		}
+	}
+	return result
+}
+
+func (p *Policy) GetParameter(internalName string) *PolicyParameter {
+	var result *PolicyParameter
+	for i := range p.Parameters {
+		if p.Parameters[i].InternalName == internalName {
+			result = &p.Parameters[i]
+			break
+		}
+	}
+	return result
+}
+
+func (p *Policy) NormalizeEffectParameter() {
+	if p.IsInitiative {
+		return
+	}
+	effectParam := p.GetParameter("effect")
+	if effectParam != nil {
+		if effectParam.DefaultValue == nil {
+			effectParam.DefaultValue = p.Effect
+		}
+	} else {
+		p.Parameters = append(p.Parameters, PolicyParameter{
+			InternalName: "*effect",
+			Type:         "string",
+			DefaultValue: p.Effect,
+		})
+	}
+}
+
 func (a *Attachment) Merge(other Attachment) {
 	if other.Enabled {
 		a.Enabled = other.Enabled
@@ -139,6 +179,9 @@ func (a *Attachment) Merge(other Attachment) {
 	}
 	if a.Effect == "" {
 		a.Effect = other.Effect
+	}
+	if a.LinkedScopes == nil {
+		a.LinkedScopes = other.LinkedScopes
 	}
 	for k, v := range other.Parameters {
 		a.Parameters[k] = v

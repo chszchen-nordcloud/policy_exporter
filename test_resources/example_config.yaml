@@ -3,15 +3,16 @@ PolicyQueryASCPolicySetName:
 PolicyQueryManagementGroupName:
 OldBaselineExcelFilePath: test_resources/Azure Cloud Foundation - Baseline Policies.xlsx
 ExcelFilePath: test_resources/Azure Cloud Foundation - Baseline Policies - WithUserInputs.xlsx
-YAMLFilePath: test_resources/example_policies.yaml
 LocalLandingZoneRepoDir: /Users/chszchen/Home/Temp/azure/ACF3.Modular
 ManagementGroups:
-  - ACF's subscriptions
-  - PLATFORM's subscriptions
+  - aa subscriptions
+  - bb's subscriptions
   - LANDING ZONE's subscriptions
+  - another' subscription
   - SANDBOX's subscriptions
 ASCParametersFileMappings:
-  ACF's subscriptions: ASC_policy_ACF.json
-  PLATFORM's subscriptions: ASC_policy_PLATFORM.json
+  aa subscriptions: ASC_policy_aa.json
+  bb's subscriptionss: ASC_policy_bb.json
   LANDING ZONE's subscriptions: ASC_policy_LANDINGZONE.json
+  another' subscription: ASC_policy_another.json
   SANDBOX's subscriptions: ASC_policy_SANDBOX.json

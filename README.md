@@ -26,7 +26,7 @@ OldBaselineExcelFilePath | No | - | The path to the old baseline Excel file. Cur
 ExcelFilePath | Yes | - | This is required when exporting the JSON parameter files and MDX files.
 YAMLFilePath | No | - | Previously it was in the design to provide similar inputs as currently provided through the Excel file.
 ManagementGroups | Yes | - | The name of the management groups. It is allowed to provide parameter values per management group.
-ManagementGroupToExportForASCParameters | Yes | - | Currently only exports ASC policy parameters values of a single management group.
+ASCParametersFileMappings | Yes | - | A mapping from management group names to exported file names for ASC policy parameters.
 TargetDir | Yes | - | The directory under which the exported files are placed.
 LocalLandingZoneRepoDir | Yes | - | The path to local directory of the Azure LZ repository.
 

@@ -29,6 +29,7 @@ type policyTemplate struct {
 	AssignmentName string                             `json:"assignmentName"`
 	Mode           string                             `json:"mode"`
 	Parameters     map[string]policyTemplateParameter `json:"parameters"`
+	LinkedScopes   []string                           `json:"linkedScopes"`
 }
 
 type policyTemplateParameter struct {
@@ -108,6 +109,7 @@ func ReadCustomPoliciesFromLocalRepository(repositoryDir string) ([]Policy, erro
 		if err != nil {
 			return err
 		}
+		policy.NormalizeEffectParameter()
 
 		policies = append(policies, policy)
 		return nil

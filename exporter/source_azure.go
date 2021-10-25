@@ -108,12 +108,6 @@ func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, mana
 			}
 			*initiatives = append(*initiatives, *policySetDef.ID)
 		}
-
-		p, err := policySetDefToPolicy(policySetDef)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, *p)
 	}
 
 	for list := policy.NewDefinitionListResultIterator(policyPage); list.NotDone(); err = list.NextWithContext(ctx) {
@@ -141,22 +135,6 @@ func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, mana
 	return result, nil
 }
 
-func policySetDefToPolicy(policyDef policy.SetDefinition) (*Policy, error) {
-	p := Policy{
-		DisplayName:  *policyDef.DisplayName,
-		ResourceID:   *policyDef.ID,
-		Parameters:   parsePolicyParameter(policyDef.Parameters),
-		IsInitiative: true,
-	}
-	if policyDef.Description != nil {
-		p.Description = *policyDef.Description
-	}
-	if category, ok := getBuiltinPolicyCategory(policyDef.Metadata); ok {
-		p.Category = category
-	}
-	return &p, nil
-}
-
 func policyDefToPolicy(policyDef policy.Definition) (*Policy, error) {
 	staticEffect := getBuiltinPolicyStaticEffect(policyDef.PolicyRule)
 	if staticEffect == nil {
@@ -175,6 +153,8 @@ func policyDefToPolicy(policyDef policy.Definition) (*Policy, error) {
 	if category, ok := getBuiltinPolicyCategory(policyDef.Metadata); ok {
 		p.Category = category
 	}
+
+	p.NormalizeEffectParameter()
 	return &p, nil
 }
 

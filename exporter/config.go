@@ -47,9 +47,13 @@ func (c *Config) Validate() error {
 	if _, err := os.Stat(c.OldBaselineExcelFilePath); err != nil {
 		return err
 	}
-	if _, err := os.Stat(c.YAMLFilePath); err != nil {
-		return err
+
+	if c.YAMLFilePath != "" {
+		if _, err := os.Stat(c.YAMLFilePath); err != nil {
+			return err
+		}
 	}
+
 	if c.PolicyQueryManagementGroupName == "" {
 		c.PolicyQueryManagementGroupName = "Sandbox"
 	}

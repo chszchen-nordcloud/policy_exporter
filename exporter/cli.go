@@ -10,7 +10,7 @@ import (
 func BuildCLI() *cobra.Command {
 	var configFile string
 	rootCmd := &cobra.Command{
-		Use:   "azure-policy-exporter",
+		Use:   "policy-exporter",
 		Short: "exports azure policies to various file formats",
 		Long: `azure-policy-exporter gathers azure policy information from different sources,
 such as Azure API, Excel file and YAML file. For now it supports exporting policies in three formats:

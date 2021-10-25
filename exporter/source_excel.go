@@ -17,6 +17,11 @@ const (
 	// is used for the entire cell instead of values for separate parameters. It means the policy is not used
 	// for that management group.
 	CellValueNotApplied = "n/a"
+
+	// CellValueEnabled is a magic value used to indicate that a policy will be deployed for a management group.
+	// Policy parameters will fallback to their default values if they have one. If there are parameters without
+	// default values, then the value should be provided explicitly instead.
+	CellValueEnabled = "YES"
 )
 
 // Reader definitions for obsolete files are used for old baseline file which is exported from Google Doc.
@@ -43,7 +48,8 @@ var (
 	// Didn't bother to replace magic numbers as the file to parse is obsolete.
 	obsoleteBuiltinPoliciesSheetReader = policySheetReader{
 		SheetName: SheetNameBuiltinPolicies,
-		RowToPolicy: func(row []string, _ *columns) (*Policy, error) {
+		RowToPolicy: func(values namedCells) (*Policy, error) {
+			row := values.values
 			var justification string
 			if len(row) >= 9 {
 				justification = row[8]
@@ -60,7 +66,8 @@ var (
 	// Didn't bother to replace magic numbers as the file to parse is obsolete.
 	obsoleteASCPolicyParametersSheetReader = policyParameterSheetReader{
 		SheetName: SheetNameAscParameters,
-		RowToPolicyParameter: func(row []string, _ *columns) (*PolicyParameter, error) {
+		RowToPolicyParameter: func(values namedCells) (*PolicyParameter, error) {
+			row := values.values
 			var justification, costImpact string
 			if len(row) >= 8 {
 				justification = row[7]
@@ -161,33 +168,24 @@ type ExcelPolicyDefinition struct {
 type policySheetReader struct {
 	SheetName       string
 	SheetDefinition *sheetDefinition
-	RowToPolicy     func(values []string, columns *columns) (*Policy, error)
+	RowToPolicy     func(namedCells) (*Policy, error)
 }
 
 type policyParameterSheetReader struct {
 	SheetName            string
 	SheetDefinition      *sheetDefinition
-	RowToPolicyParameter func(values []string, columns *columns) (*PolicyParameter, error)
+	RowToPolicyParameter func(namedCells) (*PolicyParameter, error)
 }
 
 func readPoliciesFromSheet(f *excelize.File, managementGroups []string, reader *policySheetReader) ([]Policy, error) {
-	rows, err := f.GetRows(reader.SheetName)
+	rows, err := reader.readRows(f, managementGroups)
 	if err != nil {
 		return nil, err
 	}
 
-	var columns *columns
-	if reader.SheetDefinition != nil {
-		_, cols, err := reader.SheetDefinition.BuildHeaders(managementGroups)
-		if err != nil {
-			return nil, err
-		}
-		columns = cols
-	}
-
 	policies := make([]Policy, 0, len(rows))
-	for _, row := range rows[1:] {
-		policy, err := reader.RowToPolicy(row, columns)
+	for _, row := range rows {
+		policy, err := reader.RowToPolicy(row)
 		if err != nil {
 			return nil, err
 		}
@@ -197,23 +195,14 @@ func readPoliciesFromSheet(f *excelize.File, managementGroups []string, reader *
 }
 
 func readPolicyParametersFromSheet(f *excelize.File, managementGroups []string, reader *policyParameterSheetReader) ([]PolicyParameter, error) {
-	rows, err := f.GetRows(reader.SheetName)
+	rows, err := reader.readRows(f, managementGroups)
 	if err != nil {
 		return nil, err
 	}
 
-	var columns *columns
-	if reader.SheetDefinition != nil {
-		_, cols, err := reader.SheetDefinition.BuildHeaders(managementGroups)
-		if err != nil {
-			return nil, err
-		}
-		columns = cols
-	}
-
 	parameters := make([]PolicyParameter, 0, len(rows))
-	for _, row := range rows[1:] {
-		parameter, err := reader.RowToPolicyParameter(row, columns)
+	for _, row := range rows {
+		parameter, err := reader.RowToPolicyParameter(row)
 		if err != nil {
 			return nil, err
 		}
@@ -222,34 +211,48 @@ func readPolicyParametersFromSheet(f *excelize.File, managementGroups []string, 
 	return parameters, nil
 }
 
-func rowToPolicyParameter(values []string, columns *columns) (*PolicyParameter, error) {
-	typesStr, err := columns.MustGetValue(values, ColumnParameterTypes)
+func rowToPolicyParameter(values namedCells) (*PolicyParameter, error) {
+	typesStr, err := values.MustGet(ColumnParameterTypes)
 	if err != nil {
-		return nil, fmt.Errorf("row values does not contain parameter types: %v", values)
+		return nil, err
 	}
 	parameterType := parseSingleParameterRawValue(typesStr)
 
-	managementGroupToValueStr := columns.GetDynamicColumnValues(values)
+	rootManagementGroup := values.GetRootManagementGroup()
+	managementGroupToValueStr := values.GetDynamicColumnValues()
 	managementGroupToValue := make(map[string]interface{})
 	for mgmtGroupName, valueStr := range managementGroupToValueStr {
 		valueStr := strings.TrimSpace(valueStr)
 		if valueStr == "" || valueStr == CellValueNotApplied {
 			continue
 		}
-		converted, err := parseSingleParameterValue(parameterType, valueStr)
-		if err != nil {
-			return nil, err
+		if strings.EqualFold(valueStr, CellValueEnabled) {
+			defaultStr, err := values.MustGet(ColumnDefaultValues)
+			if err != nil {
+				return nil, err
+			}
+			defaultValue := parseSingleParameterRawValue(defaultStr)
+			managementGroupToValue[mgmtGroupName] = defaultValue
+		} else {
+			converted, err := parseSingleParameterValue(parameterType, valueStr)
+			if err != nil {
+				return nil, err
+			}
+			managementGroupToValue[mgmtGroupName] = converted
 		}
-		managementGroupToValue[mgmtGroupName] = converted
+	}
+	if v, ok := managementGroupToValue[rootManagementGroup]; ok {
+		managementGroupToValue = make(map[string]interface{})
+		managementGroupToValue[rootManagementGroup] = v
 	}
 
-	internalName, err := columns.MustGetValue(values, ColumnReferenceID)
+	internalName, err := values.MustGet(ColumnReferenceID)
 	if err != nil {
 		return nil, err
 	}
 
-	justification, _ := columns.GetValue(values, ColumnJustification)
-	costImpact, _ := columns.GetValue(values, ColumnCostImpact)
+	justification, _ := values.Get(ColumnJustification)
+	costImpact, _ := values.Get(ColumnCostImpact)
 
 	parameter := PolicyParameter{
 		InternalName:     internalName,
@@ -260,15 +263,15 @@ func rowToPolicyParameter(values []string, columns *columns) (*PolicyParameter, 
 	return &parameter, nil
 }
 
-func rowToPolicy(values []string, columns *columns) (*Policy, error) {
-	displayName, err := columns.MustGetValue(values, ColumnDisplayName)
+func rowToPolicy(values namedCells) (*Policy, error) {
+	displayName, err := values.MustGet(ColumnDisplayName)
 	if err != nil {
 		return nil, err
 	}
 
-	category, _ := columns.GetValue(values, ColumnCategory)
+	category, _ := values.Get(ColumnCategory)
 
-	typesStr, ok := columns.GetValue(values, ColumnParameterTypes)
+	typesStr, ok := values.Get(ColumnParameterTypes)
 	if !ok {
 		fmt.Printf("policy '%s' has no parameters, skip parsing parameter values\n", displayName)
 		return &Policy{
@@ -278,29 +281,48 @@ func rowToPolicy(values []string, columns *columns) (*Policy, error) {
 	}
 	parameterTypes := parsePolicyParameterRawValues(typesStr)
 
-	attachments := make(map[string]Attachment)
-	managementGroupToValueStr := columns.GetDynamicColumnValues(values)
-	for mgmtGroupName, valueStr := range managementGroupToValueStr {
-		valueStr := strings.TrimSpace(valueStr)
+	toAttachment := func(v string) (*Attachment, error) {
+		valueStr := strings.TrimSpace(v)
 		if valueStr == "" || valueStr == CellValueNotApplied {
-			continue
+			return nil, nil
 		}
-		converted, err := parsePolicyParameterValues(parameterTypes, valueStr)
+		var attachment Attachment
+		if !strings.EqualFold(valueStr, CellValueEnabled) {
+			converted, err := parsePolicyParameterValues(parameterTypes, valueStr)
+			if err != nil {
+				return nil, err
+			}
+			attachment = Attachment{
+				Parameters: converted,
+			}
+			if effect, ok := converted["effect"]; ok {
+				attachment.Effect = effect.(string)
+			}
+		}
+		attachment.Enabled = true
+		attachment.Location = "variables('managedIdentityLocation')]"
+		return &attachment, nil
+	}
+
+	attachments := make(map[string]Attachment)
+	rootManagementGroup := values.GetRootManagementGroup()
+	managementGroupToValueStr := values.GetDynamicColumnValues()
+	for mgmtGroupName, valueStr := range managementGroupToValueStr {
+		attachment, err := toAttachment(valueStr)
 		if err != nil {
 			return nil, err
 		}
-		attachment := Attachment{
-			Parameters: converted,
-			Location:   "variables('managedIdentityLocation')]",
+		if attachment != nil {
+			attachments[mgmtGroupName] = *attachment
 		}
-		if effect, ok := converted["effect"]; ok {
-			attachment.Effect = effect.(string)
-		}
-		attachments[mgmtGroupName] = attachment
+	}
+	if v, ok := attachments[rootManagementGroup]; ok {
+		attachments = make(map[string]Attachment)
+		attachments[rootManagementGroup] = v
 	}
 
-	justification, _ := columns.GetValue(values, ColumnJustification)
-	costImpact, _ := columns.GetValue(values, ColumnCostImpact)
+	justification, _ := values.Get(ColumnJustification)
+	costImpact, _ := values.Get(ColumnCostImpact)
 
 	policy := Policy{
 		Category:         category,
@@ -389,4 +411,89 @@ func parsePolicyParameterRawValues(s string) map[string]string {
 		m[k] = v
 	}
 	return m
+}
+
+func (r *policyParameterSheetReader) readRows(f *excelize.File, dynamicColumns []string) ([]namedCells, error) {
+	return readRows(f, r.SheetName, r.SheetDefinition, dynamicColumns)
+}
+
+func (r *policySheetReader) readRows(f *excelize.File, dynamicColumns []string) ([]namedCells, error) {
+	return readRows(f, r.SheetName, r.SheetDefinition, dynamicColumns)
+}
+
+func readRows(f *excelize.File, sheetName string, definition *sheetDefinition, dynamicColumns []string) ([]namedCells, error) {
+	var result []namedCells
+	if definition == nil {
+		rows, err := f.GetRows(sheetName)
+		if err != nil {
+			return nil, err
+		}
+		result = make([]namedCells, 0, len(rows)-1)
+		for _, row := range rows[1:] {
+			result = append(result, namedCells{values: row})
+		}
+	} else {
+		sheet, err := newExcelSheet(f, *definition, dynamicColumns)
+		if err != nil {
+			return nil, err
+		}
+		result, err = sheet.GetRows()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+type namedCells struct {
+	columns *columns
+	values  []string
+}
+
+// GetDynamicColumnValues returns a column name to value mapping in which only dynamic columns are included.
+// 'dynamic columns' are columns that may vary based on user inputs and cannot be hardcoded.
+func (c *namedCells) GetDynamicColumnValues() map[string]string {
+	result := make(map[string]string)
+	for idx := c.columns.dynamicColumnStart; idx < c.columns.dynamicColumnEnd; idx++ {
+		key := c.columns.headers[idx]
+		result[key] = c.values[idx]
+	}
+	return result
+}
+
+func (c *namedCells) GetRootManagementGroup() string {
+	return c.columns.headers[c.columns.dynamicColumnStart]
+}
+
+// Get returns a flag indicating whether the value is provided for the given column.
+func (c *namedCells) Get(column string) (string, bool) {
+	idx, ok := c.columns.indexes[column]
+	if !ok {
+		return "", false
+	}
+	if len(c.values) < idx+1 {
+		return "", false
+	}
+	return c.values[idx], true
+}
+
+// MustGet returns error if value is not provided for the given column.
+func (c *namedCells) MustGet(column string) (string, error) {
+	v, ok := c.Get(column)
+	if !ok {
+		return "", fmt.Errorf("value for column '%s' does not exist in row %v", column, c.values)
+	}
+	return v, nil
+}
+
+func (c *namedCells) ID() interface{} {
+	internalName, ok := c.Get(ColumnReferenceID)
+	if ok {
+		return internalName
+	}
+	displayName, ok := c.Get(ColumnDisplayName)
+	if ok {
+		return displayName
+	}
+	return nil
 }

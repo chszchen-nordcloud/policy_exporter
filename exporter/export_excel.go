@@ -65,6 +65,7 @@ var (
 			for _, policy := range policies {
 				row := builtInPolicyToRowValues(policy)
 				row[ColumnPolicyType] = newCell("Custom")
+				delete(row, ColumnBelongingInitiatives)
 				delete(row, ColumnResourceID)
 				rows = append(rows, row)
 			}
@@ -111,18 +112,13 @@ func SaveExcelFile(file *excelize.File, targetDir string) error {
 
 // ExportDataToExcelSheet exports input data to a sheet in the workbook, given the sheet definition and dynamic columns.
 func ExportDataToExcelSheet(file *excelize.File, sheetDef sheetDefinition, data interface{}, dynamicColumns []string) error {
-	sheet := newExcelSheet(file, sheetDef.Name, sheetDef.Order)
-
-	headers, columns, err := sheetDef.BuildHeaders(dynamicColumns)
+	sheet, err := newExcelSheet(file, sheetDef, dynamicColumns)
 	if err != nil {
 		return err
 	}
-	rows := []row{headers}
-	for _, row := range sheetDef.GetRows(data) {
-		rows = append(rows, columns.ToRowValues(row))
-	}
 
-	err = sheet.SetRows(sheetDef.Name, rows)
+	partialRows := sheetDef.GetRows(data)
+	err = sheet.SetRows(partialRows)
 	if err != nil {
 		return err
 	}
@@ -182,8 +178,8 @@ type sheetDefinition struct {
 // Runtime sheet information.
 type excelSheet struct {
 	*excelize.File
-	columns          *columns
 	name             string
+	columns          *columns
 	cellWidth        []int
 	defaultCellWidth []int
 	rowCount         int
@@ -219,94 +215,89 @@ func (c *columns) Length() int {
 func (c *columns) ToRowValues(values partialRow) row {
 	row := make(row, len(c.headers))
 	for key, value := range values {
-		idx := c.indexes[key]
-		row[idx] = value
+		idx, ok := c.indexes[key]
+		if ok {
+			row[idx] = value
+		} else {
+			fmt.Printf("column %s from row value is not found in sheet definition\n", key)
+		}
 	}
 	return row
 }
 
-// GetDynamicColumnValues returns a column name to value mapping in which only dynamic columns are included.
-// 'dynamic columns' are columns that may vary based on user inputs and cannot be hardcoded.
-func (c *columns) GetDynamicColumnValues(values []string) map[string]string {
-	result := make(map[string]string)
-	for idx := c.dynamicColumnStart; idx < c.dynamicColumnEnd; idx++ {
-		key := c.headers[idx]
-		result[key] = values[idx]
-	}
-	return result
-}
-
-// MustGetValue returns error if value is not provided for the given column.
-func (c *columns) MustGetValue(values []string, column string) (string, error) {
-	v, ok := c.GetValue(values, column)
-	if !ok {
-		return "", fmt.Errorf("value for column '%s' does not exist", column)
-	}
-	return v, nil
-}
-
-// GetValue returns a flag indicating whether the value is provided for the given column.
-func (c *columns) GetValue(values []string, column string) (string, bool) {
-	idx, ok := c.indexes[column]
-	if !ok {
-		return "", false
-	}
-	if len(values) < idx+1 {
-		return "", false
-	}
-	return values[idx], true
-}
-
-// BuildHeaders returns a row for header as well as the `columns` definition.
-func (sd *sheetDefinition) BuildHeaders(dynamicHeaders []string) (row, *columns, error) {
-	columns, err := newColumns(sd.Columns, dynamicHeaders, sd.DynamicColumnIndex)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	values := newRow(columns.headers...)
-	return values, columns, nil
-}
-
 // newExcelSheet creates a new sheet with specified name and index.
-func newExcelSheet(f *excelize.File, name string, index int) excelSheet {
-	if index >= 0 {
+func newExcelSheet(f *excelize.File, definition sheetDefinition, dynamicColumns []string) (*excelSheet, error) {
+	sheetIndex := definition.Order
+	sheetName := definition.Name
+	if definition.Order >= 0 {
 		sheetNum := len(f.GetSheetList())
 		for {
-			if sheetNum >= index+1 {
+			if sheetNum >= sheetIndex+1 {
 				break
 			}
 			f.NewSheet(fmt.Sprintf("Sheet%d", sheetNum+1))
 			sheetNum++
 		}
-		oldName := f.GetSheetName(index)
-		if oldName != name {
-			f.SetSheetName(oldName, name)
+		oldName := f.GetSheetName(sheetIndex)
+		if oldName != sheetName {
+			f.SetSheetName(oldName, sheetName)
 		}
-	} else if f.GetSheetIndex(name) == -1 {
-		f.NewSheet(name)
+	} else if f.GetSheetIndex(sheetName) == -1 {
+		f.NewSheet(sheetName)
 	}
 
-	return excelSheet{
-		File:   f,
-		name:   name,
-		startX: 1,
-		startY: 1,
+	cols, err := newColumns(definition.Columns, dynamicColumns, definition.DynamicColumnIndex)
+	if err != nil {
+		return nil, err
 	}
+
+	sheet := excelSheet{
+		File:    f,
+		name:    sheetName,
+		columns: cols,
+		startX:  1,
+		startY:  1,
+	}
+	return &sheet, nil
+}
+
+func (f *excelSheet) GetRows() ([]namedCells, error) {
+	rows, err := f.File.GetRows(f.name)
+	if err != nil {
+		return nil, err
+	}
+
+	if f.columns.Length() != len(rows[0]) {
+		return nil, fmt.Errorf("columns length %d does not match values length %d in sheet %s", f.columns.Length(), len(rows[0]), f.name)
+	}
+
+	result := make([]namedCells, 0, len(rows)-1)
+	for _, row := range rows[1:] {
+		result = append(result, namedCells{
+			columns: f.columns,
+			values:  row,
+		})
+	}
+	return result, nil
 }
 
 // SetRows sets the content of a sheet.
-func (f *excelSheet) SetRows(sheetName string, rows []row) error {
-	if len(rows) == 0 {
+func (f *excelSheet) SetRows(partialRows []partialRow) error {
+	if len(partialRows) == 0 {
 		return errors.New("rows are empty")
 	}
 
+	headerRow := newRow(f.columns.headers...)
 	if f.cellWidth == nil {
-		f.cellWidth = make([]int, len(rows[0]))
+		f.cellWidth = make([]int, len(headerRow))
+	}
+	if f.defaultCellWidth == nil {
+		f.defaultCellWidth = headerRow.Widths()
 	}
 
-	if f.defaultCellWidth == nil {
-		f.defaultCellWidth = rows[0].Widths()
+	rows := []row{headerRow}
+	for _, row := range partialRows {
+		rows = append(rows, f.columns.ToRowValues(row))
 	}
 
 	for i, row := range rows {
@@ -317,7 +308,7 @@ func (f *excelSheet) SetRows(sheetName string, rows []row) error {
 		}
 		f.updateCellWidth(row.Widths())
 		values := row.Values()
-		err = f.SetSheetRow(sheetName, cell, &values)
+		err = f.SetSheetRow(f.name, cell, &values)
 		if err != nil {
 			return err
 		}
@@ -429,8 +420,8 @@ func policyParameterToRowValues(parameter PolicyParameter) partialRow {
 func builtInPolicyToRowValues(policy Policy) partialRow {
 	return map[string]cell{
 		ColumnDisplayName:          newCell(policy.DisplayName),
-		ColumnPossibleValues:       formatParameters(getParametersOfPolicyForExport(policy, false), formatParameterPossibleValues),
-		ColumnDefaultValues:        formatParameters(getParametersOfPolicyForExport(policy, true), formatParameterDefaultValues),
+		ColumnPossibleValues:       formatParameters(policy.GetParametersForExport(), formatParameterPossibleValues),
+		ColumnDefaultValues:        formatParameters(policy.Parameters, formatParameterDefaultValues),
 		ColumnDescription:          newCell(policy.Description),
 		ColumnCategory:             newCell(policy.Category),
 		ColumnPolicyType:           newCell("Builtin"),
@@ -523,32 +514,6 @@ func newColumns(staticHeaders []string, dynamicHeaders []string, dynamicHeaderIn
 		dynamicColumnEnd:   insertAt + len(dynamicHeaders),
 	}
 	return &columns, nil
-}
-
-func getParametersOfPolicyForExport(policy Policy, addEffectParam bool) []PolicyParameter {
-	parameters := policy.Parameters
-	if policy.IsInitiative {
-		return parameters
-	}
-
-	var effectParam *PolicyParameter
-	for i := range parameters {
-		if parameters[i].InternalName == "effect" {
-			effectParam = &parameters[i]
-		}
-	}
-	if effectParam != nil {
-		if effectParam.DefaultValue == nil {
-			effectParam.DefaultValue = policy.Effect
-		}
-	} else if addEffectParam {
-		parameters = append(parameters, PolicyParameter{
-			InternalName: "*effect",
-			Type:         "string",
-			DefaultValue: policy.Effect,
-		})
-	}
-	return parameters
 }
 
 func getTargetFileName(targetDir string) string {
