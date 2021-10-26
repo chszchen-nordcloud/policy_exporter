@@ -247,6 +247,15 @@ func (p SortPolicyParametersByInternalName) Less(i, j int) bool {
 	return strings.Compare(p[i].InternalName, p[j].InternalName) < 0
 }
 
+func (c *Category) GetPolicy(name string) (*Policy, bool) {
+	for i := range c.Policies {
+		if c.Policies[i].DisplayName == name {
+			return &c.Policies[i], true
+		}
+	}
+	return nil, false
+}
+
 func Unique(valuesWithID []UniqueResource) []UniqueResource {
 	m := make(map[interface{}]UniqueResource)
 	for i := range valuesWithID {

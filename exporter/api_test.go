@@ -2,9 +2,12 @@ package exporter
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"github.com/xuri/excelize/v2"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -64,11 +67,73 @@ func TestExportIntermediateFiles(t *testing.T) {
 	verifyPolicyParameterRowsFromReader(t, ctx, config, ascPolicyParametersSheetReader, ascPolicyParametersSourceReader)
 }
 
+func TestExportFinal(t *testing.T) {
+	if SkipTest() {
+		return
+	}
+
+	// There are relative paths in the configuration file which are relative to the parent directory.
+	err := os.Chdir("..")
+	assert.NoError(t, err)
+
+	ctx := context.Background()
+	config := getConfigForTest(t)
+
+	// A flag to skip the exporting part.
+	if !skipExportDuringTest() {
+		err := ExportFinal(ctx, *config)
+		assert.NoError(t, err)
+	}
+
+	exportedPolicyJSONFile := filepath.Join(config.TargetDir, ExportedPolicyJsonParameterFileName)
+	root := exportedPolicyJSONContent{}
+	b, err := ioutil.ReadFile(exportedPolicyJSONFile)
+	assert.NoError(t, err)
+	err = json.Unmarshal(b, &root)
+	assert.NoError(t, err)
+
+	// If values are provided for multiple management groups including the root management group, then only the value
+	// for root management group is needed in the JSON file.
+	network, ok := root.GetCategory("Network")
+	assert.True(t, ok)
+	p, ok := network.GetPolicy("A custom IPsec/IKE policy must be applied to all Azure virtual network gateway connections")
+	assert.True(t, ok)
+	assert.Equal(t, 1, len(p.ManagementGroups))
+	_, ok = p.ManagementGroups["mg-acfdev"]
+	assert.True(t, ok)
+
+	// If 'Yes' is specified, then there is no need for explicit 'parameters' block as default value is used.
+	// Otherwise, 'parameters' block need to be present to provide the value user specified, even if it is the same as the default value.
+	securityCenter, ok := root.GetCategory("Security Center")
+	assert.True(t, ok)
+	p, ok = securityCenter.GetPolicy("A maximum of 3 owners should be designated for your subscription")
+	assert.True(t, ok)
+	m1, ok := p.ManagementGroups["mg-landing-zone"]
+	assert.True(t, ok)
+	assert.NotEmpty(t, m1.Parameters)
+	m2, ok := p.ManagementGroups["mg-platform"]
+	assert.True(t, ok)
+	assert.Empty(t, m2.Parameters)
+}
+
+type exportedPolicyJSONContent struct {
+	Category []Category `json:"category"`
+}
+
+// policyVerifier verifies a parsed policy against its source policy
 type policyVerifier = func(*testing.T, *Policy, *Policy)
+
+// policyRowVerifier verifies raw policy row data against its source policy
 type policyRowVerifier = func(*testing.T, *namedCells, *Policy)
+
+// policyVerifier verifies a parsed policy parameter against its source policy parameter
 type policyParameterVerifier = func(*testing.T, *PolicyParameter, *PolicyParameter)
+
+// policyVerifier verifies roww policy parameter row against its source policy parameter
 type policyParameterRowVerifier = func(*testing.T, *namedCells, *PolicyParameter)
 
+// verifyPolicies verifies an array of policy objects against its source objects.
+// `optional` indicates whether an object in the result must also be present in the source.
 func verifyPolicies(
 	t *testing.T, results []Policy, source []Policy, optional bool,
 	policyVerifiers []policyVerifier,
@@ -177,39 +242,6 @@ func verifyPolicyParameterRows(
 	}
 }
 
-func policyEffectVerifier(t *testing.T, row *namedCells, source *Policy) {
-	defaultValuesStr, ok := row.Get(ColumnDefaultValues)
-	assert.True(t, ok)
-	possibleValuesStr, ok := row.Get(ColumnPossibleValues)
-	assert.True(t, ok)
-	defaultValues := parsePolicyParameterRawValues(defaultValuesStr)
-	possibleValues := parsePolicyParameterRawValues(possibleValuesStr)
-	defaultEffect, ok := defaultValues["effect"]
-	if source.IsInitiative {
-		assert.False(t, ok)
-	} else {
-		if ok {
-			possibleEffects, ok := possibleValues["effect"]
-			assert.True(t, ok)
-			assert.NotEmpty(t, defaultEffect)
-			assert.NotEmpty(t, possibleEffects)
-		} else {
-			_, ok := defaultValues["*effect"]
-			assert.True(t, ok)
-			_, ok = possibleValues["*effect"]
-			assert.False(t, ok)
-		}
-	}
-}
-
-func policyBelongInitiativeVerifier(t *testing.T, row *namedCells, source *Policy) {
-	v, ok := row.Get(ColumnBelongingInitiatives)
-	assert.True(t, ok)
-	if len(source.InitiativeIDs) > 0 {
-		assert.NotEmpty(t, v)
-	}
-}
-
 func verifyPolicyRowsFromReader(ctx context.Context, t *testing.T, config *Config, policySheetReader policySheetReader, baseReader PolicyReader, verifiers []policyRowVerifier) {
 	f, err := excelize.OpenFile(getTargetFileName(config.TargetDir))
 	assert.NoError(t, err)
@@ -261,7 +293,6 @@ func verifyPoliciesFromReaders(t *testing.T, ctx context.Context, resultPolicyRe
 				func(t *testing.T, policy *Policy, source *Policy) {
 					if source.Justification != "" {
 						assert.Equal(t, policy.Justification, source.Justification)
-
 					}
 					if source.CostImpact != "" {
 						assert.Equal(t, policy.CostImpact, source.CostImpact)
@@ -295,7 +326,6 @@ func verifyPolicyParametersFromReaders(t *testing.T, ctx context.Context, result
 				func(t *testing.T, policy *PolicyParameter, source *PolicyParameter) {
 					if source.Justification != "" {
 						assert.Equal(t, policy.Justification, source.Justification)
-
 					}
 					if source.CostImpact != "" {
 						assert.Equal(t, policy.CostImpact, source.CostImpact)
@@ -306,22 +336,36 @@ func verifyPolicyParametersFromReaders(t *testing.T, ctx context.Context, result
 	}
 }
 
-func TestExportFinal(t *testing.T) {
-	if SkipTest() {
-		return
+func policyEffectVerifier(t *testing.T, row *namedCells, source *Policy) {
+	defaultValuesStr, ok := row.Get(ColumnDefaultValues)
+	assert.True(t, ok)
+	possibleValuesStr, ok := row.Get(ColumnPossibleValues)
+	assert.True(t, ok)
+	defaultValues := parsePolicyParameterRawValues(defaultValuesStr)
+	possibleValues := parsePolicyParameterRawValues(possibleValuesStr)
+	defaultEffect, ok := defaultValues["effect"]
+	if source.IsInitiative {
+		assert.False(t, ok)
+	} else {
+		if ok {
+			possibleEffects, ok := possibleValues["effect"]
+			assert.True(t, ok)
+			assert.NotEmpty(t, defaultEffect)
+			assert.NotEmpty(t, possibleEffects)
+		} else {
+			_, ok := defaultValues["*effect"]
+			assert.True(t, ok)
+			_, ok = possibleValues["*effect"]
+			assert.False(t, ok)
+		}
 	}
+}
 
-	// There are relative paths in the configuration file which are relative to the parent directory.
-	err := os.Chdir("..")
-	assert.NoError(t, err)
-
-	ctx := context.Background()
-	config := getConfigForTest(t)
-
-	// A flag to skip the exporting part.
-	if !skipExportDuringTest() {
-		err := ExportFinal(ctx, *config)
-		assert.NoError(t, err)
+func policyBelongInitiativeVerifier(t *testing.T, row *namedCells, source *Policy) {
+	v, ok := row.Get(ColumnBelongingInitiatives)
+	assert.True(t, ok)
+	if len(source.InitiativeIDs) > 0 {
+		assert.NotEmpty(t, v)
 	}
 }
 
@@ -355,4 +399,13 @@ func newCachedPolicyReader(wrapped PolicyReader) PolicyReader {
 		}
 		return cached, nil
 	}
+}
+
+func (c *exportedPolicyJSONContent) GetCategory(name string) (*Category, bool) {
+	for i := range c.Category {
+		if c.Category[i].Name == name {
+			return &c.Category[i], true
+		}
+	}
+	return nil, false
 }

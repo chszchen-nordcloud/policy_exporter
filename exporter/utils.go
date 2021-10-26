@@ -59,6 +59,28 @@ func (o *JSONObject) GetString(keys ...string) (string, error) {
 	return s, nil
 }
 
+func (o *JSONObject) MustGetString(keys ...string) string {
+	v, err := o.GetString(keys...)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func (o *JSONObject) GetArrayElementAsObject(match func(*JSONObject) bool, keys ...string) (*JSONObject, error) {
+	arr, err := o.GetArray(keys...)
+	if err != nil {
+		return nil, err
+	}
+	for i := range arr {
+		obj := JSONObject(arr[i].(map[string]interface{}))
+		if match(&obj) {
+			return &obj, nil
+		}
+	}
+	return nil, fmt.Errorf("no element matches in array at %v", keys)
+}
+
 func ParseArrayValue(s string) (interface{}, error) {
 	s = strings.TrimSpace(s)
 	end := len(s)

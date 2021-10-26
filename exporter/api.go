@@ -304,22 +304,3 @@ func getLocalLandingZoneRepositoryProvider(config Config) (*PolicyDefinitionProv
 func getOldBaselineExcelFileProvider(config Config) (*PolicyDefinitionProvider, error) {
 	return getIntermediateExcelFileProvider(config.OldBaselineExcelFilePath, config)
 }
-
-func getYAMLFileProvider(config Config) (*PolicyDefinitionProvider, error) {
-	yamlPolicyDef, err := ReadPolicyDefinitionFromYAML(config.YAMLFilePath)
-	if err != nil {
-		return nil, err
-	}
-	yamlProvider := &PolicyDefinitionProvider{
-		BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
-			return yamlPolicyDef.BuiltInPolicies, nil
-		},
-		CustomPolicyReader: func(ctx context.Context) ([]Policy, error) {
-			return yamlPolicyDef.CustomPolicies, nil
-		},
-		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
-			return yamlPolicyDef.ASCPolicySetParameters, nil
-		},
-	}
-	return yamlProvider, nil
-}

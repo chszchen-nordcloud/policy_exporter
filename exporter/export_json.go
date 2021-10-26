@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 )
 
+const ExportedPolicyJsonParameterFileName = "governance-policy-parameters.json"
+
 func ExportPoliciesAsJSON(policies []Policy, targetDir string) error {
 	categoryByName := make(map[string]*Category)
 	for _, policy := range policies {
@@ -35,7 +37,7 @@ func ExportPoliciesAsJSON(policies []Policy, targetDir string) error {
 	PrintCategorySummary(categoryByName)
 
 	var m JSONObject
-	policyParameterFile := filepath.Join(targetDir, "governance-policy-parameters.json")
+	policyParameterFile := filepath.Join(targetDir, ExportedPolicyJsonParameterFileName)
 	if _, err := os.Stat(policyParameterFile); err == nil {
 		tmpl, err := NewJSONObjectFromFile(policyParameterFile)
 		if err != nil {
@@ -67,7 +69,7 @@ func PrintCategorySummary(categoryByName map[string]*Category) {
 
 func ExportPolicySetParametersAsJSON(parameters []PolicyParameter, subscriptions []string, targetDir string) error {
 	for _, subscription := range subscriptions {
-		err := doExportPolicySetParametersAsJSON(parameters, subscription, filepath.Join(targetDir, fmt.Sprintf("%s.json", subscription)))
+		err := doExportPolicySetParametersAsJSON(parameters, subscription, getTargetPolicyParameterJSONFile(targetDir, subscription))
 		if err != nil {
 			return err
 		}
@@ -108,4 +110,8 @@ func doExportPolicySetParametersAsJSON(parameters []PolicyParameter, managementG
 
 	color.Green("Write to '%s'", targetFile)
 	return os.WriteFile(targetFile, b, 0600)
+}
+
+func getTargetPolicyParameterJSONFile(targetDir string, subscription string) string {
+	return filepath.Join(targetDir, fmt.Sprintf("%s.json", subscription))
 }
