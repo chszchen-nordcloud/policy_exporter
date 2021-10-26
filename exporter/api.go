@@ -155,9 +155,7 @@ func collectPolicySetParameters(paramByName map[string]PolicyParameter) []Policy
 
 func getPolicyDefinitionExporters(config Config) []PolicyDefinitionExporter {
 	jsonExporter := PolicyDefinitionExporter{
-		PolicyExporter: func(policies []Policy, targetDir string) error {
-			return ExportPoliciesAsJSON(policies, targetDir)
-		},
+		PolicyExporter: ExportPoliciesAsJSON,
 		PolicySetParameterExporter: func(params []PolicyParameter, targetDir string) error {
 			return ExportPolicySetParametersAsJSON(params, config.Subscriptions, targetDir)
 		},

@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -18,6 +19,48 @@ func TestToJsonPretty(t *testing.T) {
 	"b": "b"
 }`, s)
 	println(s)
+}
+
+func TestParseArrayValue(t *testing.T) {
+	valuesAndExpects := [][]string{
+		{"<>", "[]"},
+		{"< >", "[]"},
+
+		{"<1>", "[1]"},
+		{" <1>  ", "[1]"},
+		{"  <  1  >", "[1]"},
+
+		{"<1,2>", "[1,2]"},
+		{" <1,2> ", "[1,2]"},
+		{"< 1 , 2  >", "[1,2]"},
+
+		{`<"1","2">`, `[1,2]`},
+		{`  <"1","2">  `, `[1,2]`},
+		{` <  "1" , "2" > `, `[1,2]`},
+
+		{`<a,b>`, `["a","b"]`},
+		{`  <a,b>  `, `["a","b"]`},
+		{` <  a , b > `, `["a","b"]`},
+
+		{`<"true","false">`, `[true,false]`},
+		{`  <"true","false">  `, `[true,false]`},
+		{` <"true" , "false" > `, `[true,false]`},
+
+		{`<true,false>`, `[true,false]`},
+		{`  <true,false>  `, `[true,false]`},
+		{` <  true , false > `, `[true,false]`},
+	}
+
+	for _, valueAndExpect := range valuesAndExpects {
+		value := valueAndExpect[0]
+		expect := valueAndExpect[1]
+		result, err := ParseArrayValue(value)
+		assert.NoError(t, err)
+		b, err := json.Marshal(result)
+		assert.NoError(t, err)
+		fmt.Printf("Input[%s] Output[%s]\n", value, string(b))
+		assert.Equal(t, expect, string(b))
+	}
 }
 
 func TestConvertTo(t *testing.T) {

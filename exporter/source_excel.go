@@ -1,7 +1,6 @@
 package exporter
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
@@ -153,13 +152,17 @@ func readPolicyParametersFromSheet(f *excelize.File, managementGroups []string, 
 }
 
 func rowToPolicyParameter(values namedCells) (*PolicyParameter, error) {
+	internalName, err := values.MustGet(ColumnReferenceID)
+	if err != nil {
+		return nil, err
+	}
+
 	typesStr, err := values.MustGet(ColumnParameterTypes)
 	if err != nil {
 		return nil, err
 	}
 	parameterType := parseSingleParameterRawValue(typesStr)
 
-	rootManagementGroup := values.GetRootManagementGroup()
 	managementGroupToValueStr := values.GetDynamicColumnValues()
 	managementGroupToValue := make(map[string]interface{})
 	for mgmtGroupName, valueStr := range managementGroupToValueStr {
@@ -167,29 +170,13 @@ func rowToPolicyParameter(values namedCells) (*PolicyParameter, error) {
 		if valueStr == "" || valueStr == CellValueNotApplied {
 			continue
 		}
-		if strings.EqualFold(valueStr, CellValueEnabled) {
-			defaultStr, err := values.MustGet(ColumnDefaultValues)
-			if err != nil {
-				return nil, err
-			}
-			defaultValue := parseSingleParameterRawValue(defaultStr)
-			managementGroupToValue[mgmtGroupName] = defaultValue
-		} else {
+		if !strings.EqualFold(valueStr, CellValueEnabled) {
 			converted, err := parseSingleParameterValue(parameterType, valueStr)
 			if err != nil {
 				return nil, err
 			}
 			managementGroupToValue[mgmtGroupName] = converted
 		}
-	}
-	if v, ok := managementGroupToValue[rootManagementGroup]; ok {
-		managementGroupToValue = make(map[string]interface{})
-		managementGroupToValue[rootManagementGroup] = v
-	}
-
-	internalName, err := values.MustGet(ColumnReferenceID)
-	if err != nil {
-		return nil, err
 	}
 
 	justification, _ := values.Get(ColumnJustification)
@@ -307,26 +294,16 @@ func parseSingleParameterValue(parameterType string, s string) (interface{}, err
 	switch strings.ToLower(parameterType) {
 	case "integer":
 		converted = cast.ToInt(value)
-	case "float":
-		converted = cast.ToFloat64(value)
 	case "boolean":
 		converted = cast.ToBool(value)
+	case "string":
+		converted = value
 	case "array":
-		arr := make([]interface{}, 0, 4)
-		err := json.Unmarshal([]byte(value), &arr)
+		arr, err := ParseArrayValue(value)
 		if err != nil {
 			return nil, err
 		}
 		converted = arr
-	case "object":
-		m := make(map[string]interface{})
-		err := json.Unmarshal([]byte(value), &m)
-		if err != nil {
-			return nil, err
-		}
-		converted = m
-	case "string":
-		converted = value
 	default:
 		return nil, fmt.Errorf("unsupported parameter type '%s'", parameterType)
 	}

@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/fatih/color"
 	"os"
 	"path/filepath"
@@ -66,7 +67,7 @@ func PrintCategorySummary(categoryByName map[string]*Category) {
 
 func ExportPolicySetParametersAsJSON(parameters []PolicyParameter, subscriptions []string, targetDir string) error {
 	for _, subscription := range subscriptions {
-		err := doExportPolicySetParametersAsJSON(parameters, subscription, filepath.Join(targetDir, subscription))
+		err := doExportPolicySetParametersAsJSON(parameters, subscription, filepath.Join(targetDir, fmt.Sprintf("%s.json", subscription)))
 		if err != nil {
 			return err
 		}
@@ -80,12 +81,11 @@ func doExportPolicySetParametersAsJSON(parameters []PolicyParameter, managementG
 		if len(param.ManagementGroups) == 0 {
 			continue
 		}
-		effect, ok := param.ManagementGroups[managementGroup]
-		if !ok {
-			effect = "Disabled"
-		}
-		parametersToExport[param.InternalName] = PolicyParameterValue{
-			Value: effect,
+		v, ok := param.ManagementGroups[managementGroup]
+		if ok {
+			parametersToExport[param.InternalName] = PolicyParameterValue{
+				Value: v,
+			}
 		}
 	}
 

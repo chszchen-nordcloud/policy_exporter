@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 )
 
 type JSONObject map[string]interface{}
@@ -55,6 +57,154 @@ func (o *JSONObject) GetString(keys ...string) (string, error) {
 		return "", fmt.Errorf("value %v is not a string", v)
 	}
 	return s, nil
+}
+
+func ParseArrayValue(s string) (interface{}, error) {
+	s = strings.TrimSpace(s)
+	end := len(s)
+	if end < 2 {
+		return nil, fmt.Errorf("not valid array value as there are less than 2 characters: %s", s)
+	}
+
+	if end == 2 {
+		return []interface{}{}, nil
+	}
+
+	s = strings.TrimSpace(s[1 : len(s)-1])
+	if len(s) == 0 {
+		return []interface{}{}, nil
+	}
+
+	result := make([]interface{}, 0, 8)
+	var token string
+	var valueType string
+	tokens := NewTokenizer(s)
+	if tokens.HasNext() {
+		token = tokens.Next()
+		vt, err := determineValueType(token)
+		if err != nil {
+			return nil, err
+		}
+		valueType = vt
+	} else {
+		return nil, fmt.Errorf("expected at least one token: %s", s)
+	}
+	converted, err := parseSingleParameterValue(valueType, token)
+	if err != nil {
+		return nil, err
+	}
+	result = append(result, converted)
+	for tokens.HasNext() {
+		token := tokens.Next()
+		converted, err := parseSingleParameterValue(valueType, token)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, converted)
+	}
+	return result, nil
+}
+
+type Tokenizer struct {
+	s               string
+	pos             int
+	end             int
+	valueQuoteMarks []byte
+	delimiter       byte
+}
+
+func NewTokenizer(s string) Tokenizer {
+	return Tokenizer{
+		s:               s,
+		pos:             0,
+		end:             len(s),
+		valueQuoteMarks: []byte{'"', '\''},
+		delimiter:       ',',
+	}
+}
+
+func (t *Tokenizer) HasNext() bool {
+	return t.pos < t.end
+}
+
+func (t *Tokenizer) Next() string {
+	s := t.s
+	start := t.pos
+	end := t.end
+	var quoteMark byte
+	unsetQuoteMark := func() { quoteMark = '0' }
+	isQuoteMarkSet := func() bool { return quoteMark == '0' }
+	unsetQuoteMark()
+	for i := start; i < t.end; i++ {
+		c := s[i]
+		if t.isQuoteMark(c) {
+			if quoteMark == c {
+				unsetQuoteMark()
+				end = i
+			} else {
+				quoteMark = c
+				start = i + 1
+			}
+		}
+		if isQuoteMarkSet() && t.isDelimiter(c) {
+			if end > i {
+				end = i
+			}
+			return t.consume(start, end, i+1)
+		}
+	}
+	return t.consume(start, end, t.end)
+}
+
+func (t *Tokenizer) consume(from int, to int, pos int) string {
+	result := t.s[from:to]
+	t.pos = pos
+	return result
+}
+
+func (t *Tokenizer) isQuoteMark(c byte) bool {
+	for _, q := range t.valueQuoteMarks {
+		if c == q {
+			return true
+		}
+	}
+	return false
+}
+
+func (t *Tokenizer) isDelimiter(c byte) bool {
+	return c == t.delimiter
+}
+
+const (
+	ParameterTypeInteger = "integer"
+	ParameterTypeString  = "string"
+	ParameterTypeBool    = "boolean"
+)
+
+func determineValueType(v string) (string, error) {
+	s := strings.TrimSpace(v)
+	if len(s) == 0 {
+		return "", fmt.Errorf("empty array element value: %s", s)
+	}
+
+	end := len(s)
+	for end > 1 && s[0] == s[end-1] && (s[0] == '"' || s[0] == '\'') {
+		s = s[1 : end-1]
+		end = len(s)
+	}
+
+	if end == 0 {
+		return "", fmt.Errorf("empty array element value: %s", s)
+	}
+
+	_, err := strconv.Atoi(s)
+	if err == nil {
+		return ParameterTypeInteger, nil
+	}
+	if strings.EqualFold(s, "true") || strings.EqualFold(s, "false") {
+		return ParameterTypeBool, nil
+	}
+	return ParameterTypeString, nil
 }
 
 func mapLookup(obj interface{}, keys ...string) (interface{}, error) {

@@ -66,7 +66,7 @@ type Attachment struct {
 	Parameters   map[string]interface{} `json:"parameters,omitempty" yaml:"Parameters"`
 	Location     string                 `json:"location" yaml:"Location"`
 	Effect       string                 `json:"-" yaml:"Effect"`
-	LinkedScopes []string               `json:"linkedScopes"`
+	LinkedScopes []string               `json:"linkedScopes,omitempty"`
 }
 
 type PolicyParameter struct {
