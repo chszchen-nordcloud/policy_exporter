@@ -11,7 +11,8 @@ import (
 	"time"
 )
 
-// Prefer string index over hardcoded magic integers.
+// Columns are used both for column names in Excel file and indexes into the row values.
+// We prefer string index over hardcoded magic integers.
 const (
 	ColumnDisplayName          = "DisplayName"
 	ColumnPossibleValues       = "Parameters: Possible values"
@@ -98,7 +99,7 @@ var (
 
 // SaveExcelFile saves the workbook under the target directory, properly named to avoid overwriting history files.
 func SaveExcelFile(file *excelize.File, targetDir string) error {
-	targetFile := getTargetFileName(targetDir)
+	targetFile := getTargetIntermediateExcelFileName(targetDir)
 	if _, err := os.Stat(targetFile); err != nil {
 		if !os.IsNotExist(err) {
 			return err
@@ -158,7 +159,7 @@ func ExportDataToExcelSheet(file *excelize.File, sheetDef sheetDefinition, data 
 // toPartialRows converts an input object to values for one row. It's part of the sheet definition.
 type toPartialRows = func(obj interface{}) []partialRow
 
-// Definition of sheet content which is known at compile-time.
+// sheetDefinition contains definition of sheet which is known at compile-time.
 type sheetDefinition struct {
 	// The name of sheet
 	Name string
@@ -176,19 +177,32 @@ type sheetDefinition struct {
 	DynamicColumnIndex string
 }
 
-// Runtime sheet information.
+// excelSheet contains runtime sheet information.
 type excelSheet struct {
 	*excelize.File
-	name             string
-	columns          *columns
-	cellWidth        []int
+	name string
+
+	// columns is runtime column definition
+	columns *columns
+
+	// cellWidth keeps the cell width for each column
+	cellWidth []int
+
+	// defaultCellWidth serves as a default value for cell width in case the calculated width does not make sense.
+	// As the width is dynamically updated based on cell values, it can be very small if only a few cells have values
+	// for a column.
 	defaultCellWidth []int
-	rowCount         int
-	startX           int
-	startY           int
+
+	rowCount int
+
+	// The column index at which the content begins.
+	startX int
+
+	// the row index at which the content begins.
+	startY int
 }
 
-// all columns of a sheet, some columns can be provided at runtime.
+// columns are all columns of a sheet, some columns can be provided at runtime.
 type columns struct {
 	headers            []string
 	indexes            map[string]int // redundant for quick access
@@ -196,23 +210,24 @@ type columns struct {
 	dynamicColumnEnd   int
 }
 
+// cell contains information for rendering a cell.
 // Note the desired cell width may not be the same as the length of value as it can be multiple line value.
 type cell struct {
 	value string
 	width int
 }
 
-// a row with some cells missing.
+// partialRow contains cells whose values are not empty.
 type partialRow map[string]cell
 
-// cells of a row
+// row contains cells of all columns, including empty cells if needed.
 type row []cell
 
 func (c *columns) Length() int {
 	return len(c.headers)
 }
 
-// ToRowValues returns a row that is aligned with the header definitions
+// ToRowValues converts a partialRow to a row.
 func (c *columns) ToRowValues(values partialRow) row {
 	row := make(row, len(c.headers))
 	for key, value := range values {
@@ -262,6 +277,7 @@ func newExcelSheet(f *excelize.File, definition sheetDefinition, dynamicColumns 
 	return &sheet, nil
 }
 
+// GetRows is used to read excel contents. Currently used for testing purpose.
 func (f *excelSheet) GetRows() ([]namedCells, error) {
 	rows, err := f.File.GetRows(f.name)
 	if err != nil {
@@ -399,7 +415,7 @@ func (r row) Values() []string {
 	return result
 }
 
-// converts a policy parameter to row values.
+// policyParameterToRowValues converts a policy parameter to row values.
 func policyParameterToRowValues(parameter PolicyParameter) partialRow {
 	fakeParameter := parameter
 	fakeParameter.DisplayName = ""
@@ -417,7 +433,7 @@ func policyParameterToRowValues(parameter PolicyParameter) partialRow {
 	}
 }
 
-// converts a builtin policy to row values.
+// builtInPolicyToRowValues converts a builtin policy to row values.
 func builtInPolicyToRowValues(policy Policy) partialRow {
 	recommendValue := "No"
 	if policy.Recommend {
@@ -439,6 +455,7 @@ func builtInPolicyToRowValues(policy Policy) partialRow {
 	}
 }
 
+// formatValues formats multiple values so that it fit a cell.
 func formatValues(values []string) cell {
 	maxLen := 0
 	for _, value := range values {
@@ -452,7 +469,7 @@ func formatValues(values []string) cell {
 	}
 }
 
-// build cell value for parameters.
+// formatParameters build cell value for parameters.
 func formatParameters(parameters []PolicyParameter, toString func(PolicyParameter) string) cell {
 	values := make([]string, 0, len(parameters))
 	for _, param := range parameters {
@@ -462,12 +479,12 @@ func formatParameters(parameters []PolicyParameter, toString func(PolicyParamete
 	return formatValues(values)
 }
 
-// build cell value of types of parameters.
+// formatParameterTypes builds cell value of types of parameters.
 func formatParameterTypes(param PolicyParameter) string {
 	return fmt.Sprintf("%s: %s", param.InternalName, param.Type)
 }
 
-// build cell value of possible values of parameters.
+// formatParameterPossibleValues builds cell value of possible values of parameters.
 func formatParameterPossibleValues(param PolicyParameter) string {
 	allowedValues := make([]string, 0, len(param.AllowedValues))
 	for _, allowedValue := range param.AllowedValues {
@@ -479,7 +496,7 @@ func formatParameterPossibleValues(param PolicyParameter) string {
 	return fmt.Sprintf("%s: %s", param.InternalName, strings.Join(allowedValues, ";"))
 }
 
-// build cell value of default values of parameters.
+// formatParameterDefaultValues builds cell value of default values of parameters.
 func formatParameterDefaultValues(param PolicyParameter) string {
 	var defaultValue string
 	if param.DefaultValue != nil {
@@ -490,7 +507,7 @@ func formatParameterDefaultValues(param PolicyParameter) string {
 	return fmt.Sprintf("%s: %s", param.InternalName, defaultValue)
 }
 
-// Build column definitions with all columns provided.
+// newColumns builds column definitions with all columns provided.
 func newColumns(staticHeaders []string, dynamicHeaders []string, dynamicHeaderIndex string) (*columns, error) {
 	headers := make([]string, 0, len(staticHeaders)+len(dynamicHeaders)+1)
 	insertAt := -1
@@ -522,7 +539,7 @@ func newColumns(staticHeaders []string, dynamicHeaders []string, dynamicHeaderIn
 	return &columns, nil
 }
 
-func getTargetFileName(targetDir string) string {
+func getTargetIntermediateExcelFileName(targetDir string) string {
 	return filepath.Join(
 		targetDir,
 		fmt.Sprintf(

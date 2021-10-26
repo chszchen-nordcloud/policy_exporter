@@ -22,7 +22,7 @@ func TestExportIntermediateFiles(t *testing.T) {
 
 	ctx := context.Background()
 	config := getConfigForTest(t)
-	config.ExcelFilePath = getTargetFileName(config.TargetDir)
+	config.ExcelFilePath = getTargetIntermediateExcelFileName(config.TargetDir)
 
 	// A flag to skip the exporting part.
 	if !skipExportDuringTest() {
@@ -85,7 +85,7 @@ func TestExportFinal(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	exportedPolicyJSONFile := filepath.Join(config.TargetDir, ExportedPolicyJsonParameterFileName)
+	exportedPolicyJSONFile := filepath.Join(config.TargetDir, ExportedPolicyJSONParameterFileName)
 	root := exportedPolicyJSONContent{}
 	b, err := ioutil.ReadFile(exportedPolicyJSONFile)
 	assert.NoError(t, err)
@@ -243,7 +243,7 @@ func verifyPolicyParameterRows(
 }
 
 func verifyPolicyRowsFromReader(ctx context.Context, t *testing.T, config *Config, policySheetReader policySheetReader, baseReader PolicyReader, verifiers []policyRowVerifier) {
-	f, err := excelize.OpenFile(getTargetFileName(config.TargetDir))
+	f, err := excelize.OpenFile(getTargetIntermediateExcelFileName(config.TargetDir))
 	assert.NoError(t, err)
 	rows, err := policySheetReader.readRows(f, config.ManagementGroups)
 	assert.NoError(t, err)
@@ -260,7 +260,7 @@ func verifyPolicyParameterRowsFromReader(
 	sheetReader policyParameterSheetReader,
 	baseReader PolicyParameterReader,
 ) {
-	f, err := excelize.OpenFile(getTargetFileName(config.TargetDir))
+	f, err := excelize.OpenFile(getTargetIntermediateExcelFileName(config.TargetDir))
 	assert.NoError(t, err)
 	rows, err := sheetReader.readRows(f, config.Subscriptions)
 	assert.NoError(t, err)

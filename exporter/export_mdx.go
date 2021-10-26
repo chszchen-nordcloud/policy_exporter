@@ -46,8 +46,8 @@ type DocumentInput struct {
 	ASCPolicySetParameters     []PolicyParameter
 }
 
-func ExportBuiltInPolicyDoc(managementGroups []string, policies []Policy, targetDir string) error {
-	fd, err := os.Create(filepath.Join(targetDir, "BuiltInPolicies.mdx"))
+func ExportPoliciesDoc(filename string, managementGroups []string, policies []Policy, targetDir string) error {
+	fd, err := os.Create(filepath.Join(targetDir, filename))
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func escapeStringForMarkdown(s string) string {
 	return strings.ReplaceAll(s, "|", `\|`)
 }
 
-func ExportASCPolicyDoc(managementGroups []string, parameters []PolicyParameter, targetDir string) error {
+func ExportASCPolicyParametersDoc(managementGroups []string, parameters []PolicyParameter, targetDir string) error {
 	fd, err := os.Create(filepath.Join(targetDir, "ASCPolicySetParameters.mdx"))
 	if err != nil {
 		return err

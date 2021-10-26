@@ -371,6 +371,7 @@ func readRows(f *excelize.File, sheetName string, definition *sheetDefinition, d
 	return result, nil
 }
 
+// nameCells is row values that can be indexed with column names.
 type namedCells struct {
 	columns *columns
 	values  []string
@@ -412,6 +413,7 @@ func (c *namedCells) MustGet(column string) (string, error) {
 	return v, nil
 }
 
+// ID returns the identifier for a row
 func (c *namedCells) ID() interface{} {
 	internalName, ok := c.Get(ColumnReferenceID)
 	if ok {

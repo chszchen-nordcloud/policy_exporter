@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 )
 
-const ExportedPolicyJsonParameterFileName = "governance-policy-parameters.json"
+const ExportedPolicyJSONParameterFileName = "governance-policy-parameters.json"
 
 func ExportPoliciesAsJSON(policies []Policy, targetDir string) error {
 	categoryByName := make(map[string]*Category)
@@ -37,7 +37,7 @@ func ExportPoliciesAsJSON(policies []Policy, targetDir string) error {
 	PrintCategorySummary(categoryByName)
 
 	var m JSONObject
-	policyParameterFile := filepath.Join(targetDir, ExportedPolicyJsonParameterFileName)
+	policyParameterFile := filepath.Join(targetDir, ExportedPolicyJSONParameterFileName)
 	if _, err := os.Stat(policyParameterFile); err == nil {
 		tmpl, err := NewJSONObjectFromFile(policyParameterFile)
 		if err != nil {

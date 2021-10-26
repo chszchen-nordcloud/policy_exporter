@@ -26,9 +26,6 @@ type Config struct {
 	// The path to intermediate excel file
 	ExcelFilePath string `yaml:"ExcelFilePath"`
 
-	// Required, only builtin policies found in this file will be included in JSON parameter files
-	YAMLFilePath string `yaml:"YAMLFilePath"`
-
 	// Required, management groups that appear as columns for policy tabs
 	ManagementGroups []string `yaml:"ManagementGroups"`
 
@@ -46,12 +43,6 @@ type Config struct {
 func (c *Config) Validate() error {
 	if _, err := os.Stat(c.OldBaselineExcelFilePath); err != nil {
 		return err
-	}
-
-	if c.YAMLFilePath != "" {
-		if _, err := os.Stat(c.YAMLFilePath); err != nil {
-			return err
-		}
 	}
 
 	if c.PolicyQueryManagementGroupName == "" {

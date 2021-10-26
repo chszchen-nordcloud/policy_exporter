@@ -29,6 +29,9 @@ func ExportFinal(ctx context.Context, config Config) error {
 	return syncAndExport(ctx, config, providers, getPolicyDefinitionExporters(config))
 }
 
+// syncAndExport syncs content between providers and exported files. 'providers' provides values of the same type in order.
+// The values are of type UniqueResource and will be merged and sorted before exported. Sorting is added so that it is
+// easy to tell whether the content of the exported files have changed for humans.
 func syncAndExport(ctx context.Context, config Config, providers []*PolicyDefinitionProvider, exporters []PolicyDefinitionExporter) error {
 	builtinPolicyByName := make(map[string]Policy)
 	customPolicyByName := make(map[string]Policy)
@@ -97,6 +100,7 @@ func syncAndExport(ctx context.Context, config Config, providers []*PolicyDefini
 	return nil
 }
 
+// mergePolicies merges a set of policies into destination map.
 func mergePolicies(policies []Policy, dest *map[string]Policy) {
 	initialize := false
 	if len(*dest) == 0 {
@@ -111,7 +115,7 @@ func mergePolicies(policies []Policy, dest *map[string]Policy) {
 		if initialize {
 			(*dest)[k] = policy
 		} else if existingPolicy, ok := (*dest)[k]; ok {
-			(&existingPolicy).Merge(&policy)
+			(&existingPolicy).Merge(&policy) //nolint:gosec It's safe here as we don't keep address.
 			(*dest)[k] = existingPolicy
 		}
 	}
@@ -137,6 +141,7 @@ func mergePolicySetParameters(params []PolicyParameter, dest *map[string]PolicyP
 	}
 }
 
+// collectPolicies collects values from a map.
 func collectPolicies(policyByName map[string]Policy) []Policy {
 	result := make([]Policy, 0, len(policyByName))
 	for _, v := range policyByName {
@@ -153,6 +158,7 @@ func collectPolicySetParameters(paramByName map[string]PolicyParameter) []Policy
 	return result
 }
 
+// getPolicyDefinitionExporters returns all final exporters.
 func getPolicyDefinitionExporters(config Config) []PolicyDefinitionExporter {
 	jsonExporter := PolicyDefinitionExporter{
 		PolicyExporter: ExportPoliciesAsJSON,
@@ -162,10 +168,13 @@ func getPolicyDefinitionExporters(config Config) []PolicyDefinitionExporter {
 	}
 	mdxExport := PolicyDefinitionExporter{
 		BuiltInPolicyExporter: func(policies []Policy, targetDir string) error {
-			return ExportBuiltInPolicyDoc(config.ManagementGroups, policies, targetDir)
+			return ExportPoliciesDoc("BuiltInPolicies.mdx", config.ManagementGroups, policies, targetDir)
+		},
+		CustomPolicyExporter: func(policies []Policy, targetDir string) error {
+			return ExportPoliciesDoc("CustomPolicies.mdx", config.ManagementGroups, policies, targetDir)
 		},
 		PolicySetParameterExporter: func(params []PolicyParameter, targetDir string) error {
-			return ExportASCPolicyDoc(config.Subscriptions, params, targetDir)
+			return ExportASCPolicyParametersDoc(config.Subscriptions, params, targetDir)
 		},
 	}
 	return []PolicyDefinitionExporter{
@@ -173,6 +182,7 @@ func getPolicyDefinitionExporters(config Config) []PolicyDefinitionExporter {
 	}
 }
 
+// getIntermediateExporters returns exporters for intermediate exporting, currently only excel exporter is included.
 func getIntermediateExporters(config Config) []PolicyDefinitionExporter {
 	f := excelize.NewFile()
 	excelExporter := PolicyDefinitionExporter{
@@ -218,25 +228,6 @@ func getPolicyDefinitionProvidersForFinalExport(config Config) ([]*PolicyDefinit
 	return result, nil
 }
 
-func getIntermediateExcelFileProvider(path string, config Config) (*PolicyDefinitionProvider, error) {
-	excelPolicyDef, err := ReadPolicyDefinitionFromExcel(path, config.ManagementGroups, config.Subscriptions)
-	if err != nil {
-		return nil, err
-	}
-	excelProvider := &PolicyDefinitionProvider{
-		BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
-			return excelPolicyDef.BuiltInPolicies, nil
-		},
-		CustomPolicyReader: func(ctx context.Context) ([]Policy, error) {
-			return excelPolicyDef.CustomPolicies, nil
-		},
-		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
-			return excelPolicyDef.ASCPolicySetParameters, nil
-		},
-	}
-	return excelProvider, nil
-}
-
 func getPolicyDefinitionProvidersForIntermediateExport(config Config) ([]*PolicyDefinitionProvider, error) {
 	azureAPIProvider, err := getAzureAPIProvider(config)
 	if err != nil {
@@ -270,6 +261,25 @@ func getPolicyDefinitionProvidersForIntermediateExport(config Config) ([]*Policy
 	//}
 
 	return result, nil
+}
+
+func getIntermediateExcelFileProvider(path string, config Config) (*PolicyDefinitionProvider, error) {
+	excelPolicyDef, err := ReadPolicyDefinitionFromExcel(path, config.ManagementGroups, config.Subscriptions)
+	if err != nil {
+		return nil, err
+	}
+	excelProvider := &PolicyDefinitionProvider{
+		BuiltInPolicyReader: func(ctx context.Context) ([]Policy, error) {
+			return excelPolicyDef.BuiltInPolicies, nil
+		},
+		CustomPolicyReader: func(ctx context.Context) ([]Policy, error) {
+			return excelPolicyDef.CustomPolicies, nil
+		},
+		ASCPolicySetParameterReader: func(ctx context.Context) ([]PolicyParameter, error) {
+			return excelPolicyDef.ASCPolicySetParameters, nil
+		},
+	}
+	return excelProvider, nil
 }
 
 func getAzureAPIProvider(config Config) (*PolicyDefinitionProvider, error) {

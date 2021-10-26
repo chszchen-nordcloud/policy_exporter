@@ -23,7 +23,7 @@ func TestExportBuiltInPolicyDoc(t *testing.T) {
 		},
 	}
 	managementGroups := []string{"MANAGEMENT", "PRODUCTION", "NON-PROD", "SANDBOX"}
-	err := ExportBuiltInPolicyDoc(managementGroups, policies, TestResourceDir())
+	err := ExportPoliciesDoc("BuiltInPolicies.mdx", managementGroups, policies, TestResourceDir())
 	assert.NoError(t, err)
 }
 
@@ -46,6 +46,6 @@ func TestExportASCPolicyDoc(t *testing.T) {
 		},
 	}
 	managementGroups := []string{"MANAGEMENT", "PRODUCTION", "NON-PROD", "SANDBOX"}
-	err := ExportASCPolicyDoc(managementGroups, params, TestResourceDir())
+	err := ExportASCPolicyParametersDoc(managementGroups, params, TestResourceDir())
 	assert.NoError(t, err)
 }
