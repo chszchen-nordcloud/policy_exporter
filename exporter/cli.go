@@ -31,7 +31,7 @@ func exportCommands(configFile *string) []cobra.Command {
 		{
 			Use:   "export-intermediate [targetDir]",
 			Short: "Export intermediate file for collecting user inputs",
-			Args:  cobra.MinimumNArgs(1),
+			Args:  cobra.MinimumNArgs(0),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				config, err := buildConfig(configFile, args)
 				if err != nil {
@@ -43,7 +43,7 @@ func exportCommands(configFile *string) []cobra.Command {
 		{
 			Use:   "export-final [targetDir]",
 			Short: "Export final files with all information in place",
-			Args:  cobra.MinimumNArgs(1),
+			Args:  cobra.MinimumNArgs(0),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				config, err := buildConfig(configFile, args)
 				if err != nil {
@@ -65,6 +65,8 @@ func buildConfig(configFile *string, args []string) (*Config, error) {
 	if err := yaml.Unmarshal(b, &config); err != nil {
 		return nil, err
 	}
-	config.TargetDir = args[0]
+	if len(args) > 0 {
+		config.TargetDir = args[0]
+	}
 	return &config, nil
 }
