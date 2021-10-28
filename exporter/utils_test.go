@@ -2,7 +2,7 @@ package exporter
 
 import (
 	"encoding/json"
-	"fmt"
+	"github.com/fatih/color"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -58,7 +58,7 @@ func TestParseArrayValue(t *testing.T) {
 		assert.NoError(t, err)
 		b, err := json.Marshal(result)
 		assert.NoError(t, err)
-		fmt.Printf("Input[%s] Output[%s]\n", value, string(b))
+		color.Green("Input[%s] Output[%s]\n", value, string(b))
 		assert.Equal(t, expect, string(b))
 	}
 }

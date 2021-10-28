@@ -3,6 +3,7 @@ package exporter
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/fatih/color"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -51,6 +52,7 @@ type templateFileInfo struct {
 }
 
 func ReadCustomPoliciesFromLocalRepository(repositoryDir string) ([]Policy, error) {
+	color.Green("reading custom policies from local ACF repository at: %s\n", repositoryDir)
 	rootDir := filepath.Join(repositoryDir, BaseDir)
 	policies := make([]Policy, 0, 64)
 	err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, previousErr error) error {
@@ -114,6 +116,7 @@ func ReadCustomPoliciesFromLocalRepository(repositoryDir string) ([]Policy, erro
 		policies = append(policies, policy)
 		return nil
 	})
+	color.Green("read %d custom policies from local ACF repository\n", len(policies))
 	return policies, err
 }
 
@@ -172,7 +175,9 @@ func getCategoryFromFilePath(rootDir string, path string) (string, error) {
 
 func newTemplateFileInfo(name string) (*templateFileInfo, error) {
 	invalidFileName := func() error {
-		return fmt.Errorf("invalid template file name: %s", name)
+		return fmt.Errorf("filename '%s' does not follow convention and will not be read.\n"+
+			"filename should starts with '.' if it contains initiative definition and should indicate whether it "+
+			"contains definition or parameters", name)
 	}
 	rightDotIdx := strings.LastIndex(name, ".")
 	if rightDotIdx == -1 {

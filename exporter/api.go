@@ -2,7 +2,7 @@ package exporter
 
 import (
 	"context"
-	"fmt"
+	"github.com/fatih/color"
 	"github.com/xuri/excelize/v2"
 	"sort"
 )
@@ -15,7 +15,8 @@ func ExportIntermediateFiles(ctx context.Context, config Config) error {
 	if err != nil {
 		return err
 	}
-	return syncAndExport(ctx, config, providers, getIntermediateExporters(config))
+	err = syncAndExport(ctx, config, providers, getIntermediateExporters(config))
+	return err
 }
 
 func ExportFinal(ctx context.Context, config Config) error {
@@ -109,7 +110,7 @@ func mergePolicies(policies []Policy, dest *map[string]Policy) {
 	for _, policy := range policies {
 		k := policy.DisplayName
 		if k == "" {
-			fmt.Printf("ingore policy whose name is empty: %v\n", policy)
+			color.Green("ingore policy whose name is empty: %v\n", policy)
 			continue
 		}
 		if initialize {
@@ -129,7 +130,7 @@ func mergePolicySetParameters(params []PolicyParameter, dest *map[string]PolicyP
 	for _, param := range params {
 		k := param.InternalName
 		if k == "" {
-			fmt.Printf("ingore parameter whose name is empty: %v\n", param)
+			color.Green("ingore parameter whose name is empty: %v\n", param)
 			continue
 		}
 		if initialize {
@@ -191,21 +192,25 @@ func getIntermediateExporters(config Config) []PolicyDefinitionExporter {
 			if err != nil {
 				return err
 			}
-			return SaveExcelFile(f, targetDir)
+			_, err = SaveExcelFile(f, targetDir)
+			return err
 		},
 		CustomPolicyExporter: func(policies []Policy, targetDir string) error {
 			err := ExportDataToExcelSheet(f, SheetCustomPolicy, policies, config.ManagementGroups)
 			if err != nil {
 				return err
 			}
-			return SaveExcelFile(f, targetDir)
+			_, err = SaveExcelFile(f, targetDir)
+			return err
 		},
 		PolicySetParameterExporter: func(parameters []PolicyParameter, targetDir string) error {
 			err := ExportDataToExcelSheet(f, SheetASCParameters, parameters, config.Subscriptions)
 			if err != nil {
 				return err
 			}
-			return SaveExcelFile(f, targetDir)
+			fname, err := SaveExcelFile(f, targetDir)
+			color.Green("export new baseline file to %s\n", fname)
+			return err
 		},
 	}
 	return []PolicyDefinitionExporter{excelExporter}

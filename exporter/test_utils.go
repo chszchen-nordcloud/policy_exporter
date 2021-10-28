@@ -2,7 +2,7 @@ package exporter
 
 import (
 	"encoding/json"
-	"fmt"
+	"github.com/fatih/color"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
@@ -20,7 +20,7 @@ func PrettyPrint(v interface{}) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s\n", string(b))
+	color.Green("%s\n", string(b))
 	return nil
 }
 

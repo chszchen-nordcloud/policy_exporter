@@ -6,6 +6,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/policy"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
+	"github.com/fatih/color"
 	"strings"
 )
 
@@ -39,11 +40,13 @@ func NewAzureAPI(subscriptionID string) (*AzureAPI, error) {
 
 // GetPolicySetParameters returns all parameters of a policy set.
 func (az *AzureAPI) GetPolicySetParameters(ctx context.Context, policySetName string) ([]PolicyParameter, error) {
+	color.Green("retrieving ASC policy parameters from Azure API using policy set '%s'...\n", policySetName)
 	policySet, err := az.policySetAPI.GetBuiltIn(ctx, policySetName)
 	if err != nil {
 		return nil, err
 	}
 	result := parsePolicyParameter(policySet.Parameters)
+	color.Green("retrieved %d ASC policy parameters from Azure API\n", len(result))
 	return result, nil
 }
 
@@ -73,6 +76,7 @@ func parsePolicyParameter(paramDefs map[string]*policy.ParameterDefinitionsValue
 
 // ListBuiltInPolicyByManagementGroup returns all builtin policies attached to a management group.
 func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, managementGroupID string) ([]Policy, error) {
+	color.Green("retrieving builtin policies from Azure API using management group '%s'...\n", managementGroupID)
 	policyPage, err := az.policyAPI.ListByManagementGroup(ctx, managementGroupID)
 	if err != nil {
 		return nil, err
@@ -132,6 +136,7 @@ func (az *AzureAPI) ListBuiltInPolicyByManagementGroup(ctx context.Context, mana
 
 		result = append(result, *p)
 	}
+	color.Green("retrieved %d buitlin policies from Azure API\n", len(result))
 	return result, nil
 }
 

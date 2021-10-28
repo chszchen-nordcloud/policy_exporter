@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
 	"strings"
@@ -59,6 +60,7 @@ func ReadPolicyDefinitionFromExcel(sourceFilePath string, managementGroups []str
 func readPolicyDefinitionFromExcel(
 	sourceFilePath string, managementGroups []string, subscriptions []string, excelReader ExcelPolicyDefinitionReader,
 ) (*ExcelPolicyDefinition, error) {
+	color.Green("reading from Excel file at %s\n", sourceFilePath)
 	f, err := excelize.OpenFile(sourceFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open excel file due to: %w", err)
@@ -67,27 +69,33 @@ func readPolicyDefinitionFromExcel(
 	var result ExcelPolicyDefinition
 
 	if excelReader.BuiltInPoliciesReader != nil {
+		color.Green("reading builtin policies with the following management groups: '%s'\n", strings.Join(managementGroups, ", "))
 		policies, err := readPoliciesFromSheet(f, managementGroups, excelReader.BuiltInPoliciesReader)
 		if err != nil {
 			return nil, err
 		}
 		result.BuiltInPolicies = policies
+		color.Green("read %d builtin policies from excel file\n", len(policies))
 	}
 
 	if excelReader.CustomPoliciesReader != nil {
+		color.Green("reading custom policies with the following management groups: '%s'\n", strings.Join(managementGroups, ", "))
 		policies, err := readPoliciesFromSheet(f, managementGroups, excelReader.CustomPoliciesReader)
 		if err != nil {
 			return nil, err
 		}
 		result.CustomPolicies = policies
+		color.Green("read %d custom policies from excel file\n", len(policies))
 	}
 
 	if excelReader.ASCPolicyParametersReader != nil {
+		color.Green("reading ASC policy parameters with the following subscriptions: '%s'\n", strings.Join(subscriptions, ", "))
 		parameters, err := readPolicyParametersFromSheet(f, subscriptions, excelReader.ASCPolicyParametersReader)
 		if err != nil {
 			return nil, err
 		}
 		result.ASCPolicySetParameters = parameters
+		color.Green("read %d ASC policy parameters from excel file\n", len(parameters))
 	}
 
 	return &result, nil
@@ -201,7 +209,7 @@ func rowToPolicy(values namedCells) (*Policy, error) {
 
 	typesStr, ok := values.Get(ColumnParameterTypes)
 	if !ok {
-		fmt.Printf("policy '%s' has no parameters, skip parsing parameter values\n", displayName)
+		color.Green("policy '%s' has no parameters, skip parsing parameter values\n", displayName)
 		return &Policy{
 			DisplayName: displayName,
 			Category:    category,

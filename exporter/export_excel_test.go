@@ -23,7 +23,7 @@ func TestExportBuiltInPoliciesToExcel(t *testing.T) {
 	err = ExportDataToExcelSheet(f, SheetBuiltInPolicy, policies, managementGroups)
 	assert.NoError(t, err)
 
-	err = SaveExcelFile(f, TestResourceDir())
+	_, err = SaveExcelFile(f, TestResourceDir())
 	assert.NoError(t, err)
 }
 
@@ -40,7 +40,7 @@ func TestExportCustomPoliciesToExcel(t *testing.T) {
 	err = ExportDataToExcelSheet(f, SheetCustomPolicy, policies, managementGroups)
 	assert.NoError(t, err)
 
-	err = SaveExcelFile(f, TestResourceDir())
+	_, err = SaveExcelFile(f, TestResourceDir())
 	assert.NoError(t, err)
 }
 
@@ -60,7 +60,7 @@ func TestExportASCPolicyParameters(t *testing.T) {
 	err = ExportDataToExcelSheet(f, SheetASCParameters, params, subscriptions)
 	assert.NoError(t, err)
 
-	err = SaveExcelFile(f, TestResourceDir())
+	_, err = SaveExcelFile(f, TestResourceDir())
 	assert.NoError(t, err)
 }
 

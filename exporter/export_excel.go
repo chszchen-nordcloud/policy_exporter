@@ -3,6 +3,7 @@ package exporter
 import (
 	"errors"
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
 	"os"
@@ -98,18 +99,18 @@ var (
 )
 
 // SaveExcelFile saves the workbook under the target directory, properly named to avoid overwriting history files.
-func SaveExcelFile(file *excelize.File, targetDir string) error {
+func SaveExcelFile(file *excelize.File, targetDir string) (string, error) {
 	targetFile := getTargetIntermediateExcelFileName(targetDir)
 	if _, err := os.Stat(targetFile); err != nil {
 		if !os.IsNotExist(err) {
-			return err
+			return "", err
 		}
 	} else {
 		if err := os.Remove(targetFile); err != nil {
-			return err
+			return "", err
 		}
 	}
-	return file.SaveAs(targetFile)
+	return targetFile, file.SaveAs(targetFile)
 }
 
 // ExportDataToExcelSheet exports input data to a sheet in the workbook, given the sheet definition and dynamic columns.
@@ -235,7 +236,7 @@ func (c *columns) ToRowValues(values partialRow) row {
 		if ok {
 			row[idx] = value
 		} else {
-			fmt.Printf("column %s from row value is not found in sheet definition\n", key)
+			color.Green("column %s from row value is not found in sheet definition\n", key)
 		}
 	}
 	return row
