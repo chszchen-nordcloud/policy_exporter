@@ -25,7 +25,7 @@ OldBaselineExcelFilePath | No | - | The path to the old baseline Excel file, whi
 ExcelFilePath | Yes | - | This is required when performing 'export-final' as it contains parameter values for management groups and subscriptions, which are specified manually.
 ManagementGroups | Yes | - | The name of the management groups. It is allowed to provide parameter values per management group.
 Subscriptions | Yes | - | The name of subscriptions. For ASC policy parameters, subscription names are used instead of management groups as they apply at subscription level.
-TargetDir | No | - | The directory under which the exported files are placed. If not provided then need to be specified through CLI directly.
+TargetDir | No | Current Directory | The directory under which the exported files are placed. Can also be specified through CLI directly.
 LocalLandingZoneRepoDir | Yes | - | The path to local directory of the Azure LZ repository.
 
 An example of the configuration file is provided [here](test_resources/example_config.yaml).
