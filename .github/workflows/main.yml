@@ -67,4 +67,4 @@ jobs:
 
       - name: Run `gcf-cli`
         run: >
-        $GITHUB_WORKSPACE/gcf-debian-amd64-${{steps.download-cli.outputs.tag_name}} customers add ${{ inputs.name }}
+          $GITHUB_WORKSPACE/gcf-debian-amd64-${{steps.download-cli.outputs.tag_name}} customers add ${{ inputs.name }}
